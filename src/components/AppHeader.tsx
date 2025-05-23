@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 interface AppHeaderProps {
   onSmartSchedule: () => void;
   isScheduling: boolean;
-  onAddTask: (description: string, estimatedTime: number) => void;
+  onAddTask: (description: string, estimatedTime: number) => Promise<void>; // Updated to return Promise<void>
 }
 
 const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTask }) => {
@@ -32,9 +32,14 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleInternalAddTask = (description: string, estimatedTime: number) => {
-    onAddTask(description, estimatedTime);
-    setIsAddTaskDialogOpen(false); // Close dialog after adding task
+  const handleInternalAddTask = async (description: string, estimatedTime: number): Promise<void> => {
+    // No need to return a promise from here if TaskForm handles dialog closing
+    // However, to ensure TaskForm can await, this function should await the prop
+    await onAddTask(description, estimatedTime);
+    // Consider closing dialog based on onAddTask success/failure if needed,
+    // but for now, TaskForm will reset, implying success from its perspective.
+    // If onAddTask throws, TaskForm's finally block still runs.
+    setIsAddTaskDialogOpen(false); // Close dialog after onAddTask promise resolves
   };
 
   const handleSignOut = async () => {
@@ -78,30 +83,20 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
   );
 
   return (
-    // Main header container: stacks vertically on mobile, becomes a row on sm+ screens, justifies space between main children
     <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-4 border-b gap-4">
-      {/* Top section for mobile (Logo + Auth Button), Left section for desktop (Logo) */}
       <div className="flex items-center justify-between w-full sm:w-auto">
-        {/* Logo and Title */}
         <div className="flex items-center space-x-3">
           <CalendarCheck2 className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
         </div>
-        {/* Auth Button: Visible only on mobile screens (<sm) */}
         <div className="sm:hidden">
           <AuthButtonBlock />
         </div>
       </div>
 
-      {/* Action Buttons & Desktop Auth Button: Stacks on mobile below logo, groups to right on desktop */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
         {user && (
           <>
-            <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
-              <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin' : ''}`} />
-              {isScheduling ? "Optimizing..." : "Smart Schedule"}
-            </Button>
-            
             <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
@@ -119,9 +114,13 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
                 <TaskForm onAddTask={handleInternalAddTask} />
               </DialogContent>
             </Dialog>
+
+            <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
+              <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin' : ''}`} />
+              {isScheduling ? "Optimizing..." : "Smart Schedule"}
+            </Button>
           </>
         )}
-        {/* Auth Button: Hidden on mobile (<sm), visible on sm screens and up */}
         <div className="hidden sm:flex sm:items-center">
           <AuthButtonBlock />
         </div>

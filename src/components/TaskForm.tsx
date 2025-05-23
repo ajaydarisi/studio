@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import type { FC } from 'react';
+import { useState } from 'react'; // Added useState
+import { Loader2 } from "lucide-react"; // Added Loader2 for spinner
 
 const taskFormSchema = z.object({
   description: z.string().min(1, { message: "Description is required." }).max(200, { message: "Description must be 200 characters or less." }),
@@ -24,10 +26,11 @@ const taskFormSchema = z.object({
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 interface TaskFormProps {
-  onAddTask: (description: string, estimatedTime: number) => void;
+  onAddTask: (description: string, estimatedTime: number) => Promise<void>; // Updated to return Promise<void>
 }
 
 const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Local loading state
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -36,9 +39,17 @@ const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
     },
   });
 
-  const onSubmit = (data: TaskFormValues) => {
-    onAddTask(data.description, data.estimatedCompletionTime);
-    form.reset();
+  const onSubmit = async (data: TaskFormValues) => {
+    setIsSubmittingForm(true);
+    try {
+      await onAddTask(data.description, data.estimatedCompletionTime);
+      form.reset(); // Reset form on successful submission
+    } catch (error) {
+      // Error handling might be done by the parent, or add a local error display
+      console.error("Error in TaskForm onSubmit:", error);
+    } finally {
+      setIsSubmittingForm(false);
+    }
   };
 
   return (
@@ -51,7 +62,7 @@ const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
             <FormItem>
               <FormLabel>Task Description</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Plan weekly meals" {...field} />
+                <Input placeholder="e.g., Plan weekly meals" {...field} disabled={isSubmittingForm} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -64,14 +75,21 @@ const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
             <FormItem>
               <FormLabel>Estimated Time (minutes)</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="e.g., 30" {...field} />
+                <Input type="number" placeholder="e.g., 30" {...field} disabled={isSubmittingForm} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" size="lg">
-          Add Task
+        <Button type="submit" className="w-full" size="lg" disabled={isSubmittingForm}>
+          {isSubmittingForm ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Adding Task...
+            </>
+          ) : (
+            "Add Task"
+          )}
         </Button>
       </form>
     </Form>

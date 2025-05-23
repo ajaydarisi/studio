@@ -10,8 +10,8 @@ import ProgressIndicator from "@/components/ProgressIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 // Sample initial tasks if Supabase is empty or not configured
 const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId'>[] = [
@@ -26,17 +26,16 @@ const TASKS_TABLE = "tasks";
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isClient, setIsClient] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true); // Renamed from isLoading to avoid conflict with authLoading
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isScheduling, setIsScheduling] = useState(false);
   const { toast } = useToast();
-  const { session, user, isLoading: authLoading } = useAuth(); // Get auth state
+  const { session, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Effect for redirecting if not authenticated
   useEffect(() => {
     if (!authLoading && !session && isClient) {
       router.push('/login');
@@ -60,7 +59,7 @@ export default function HomePage() {
   const loadTasksFromSupabase = useCallback(async () => {
     if (!user) {
       setIsLoadingData(false);
-      setTasks([]); // Clear tasks if no user
+      setTasks([]);
       return;
     }
     setIsLoadingData(true);
@@ -68,16 +67,16 @@ export default function HomePage() {
       const { data, error } = await supabase
         .from(TASKS_TABLE)
         .select('*')
-        .eq('user_id', user.id) // Filter by user_id
+        .eq('user_id', user.id)
         .order('orderIndex', { ascending: true });
 
       if (error) throw error;
 
       let fetchedTasks: Task[] = data ? data.map(mapSupabaseRowToTask) : [];
 
-      if (fetchedTasks.length === 0 && initialTasksSeed.length > 0 && user?.id) { // Ensure user.id for seeding
+      if (fetchedTasks.length === 0 && initialTasksSeed.length > 0 && user?.id) {
         const tasksToSeed = initialTasksSeed.map((taskSeed, index) => ({
-          user_id: user.id, // Associate with current user
+          user_id: user.id,
           description: taskSeed.description,
           estimatedCompletionTime: taskSeed.estimatedCompletionTime,
           priority: taskSeed.priority,
@@ -111,23 +110,23 @@ export default function HomePage() {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-      if (supabaseUrl && supabaseUrl !== 'your_supabase_url_here' && supabaseAnonKey && supabaseAnonKey !== 'your_supabase_anon_key_here') {
+      if (supabaseUrl && supabaseUrl !== 'your_supabase_url_here' && supabaseUrl !== '' && supabaseAnonKey && supabaseAnonKey !== 'your_supabase_anon_key_here' && supabaseAnonKey !== '') {
           loadTasksFromSupabase();
       } else {
-          console.warn("Supabase URL or Anon Key is not configured correctly.");
-          toast({ title: "Supabase Not Configured", description: "Please check your Supabase credentials in .env.", variant: "destructive", duration: 10000});
-          setIsLoadingData(false);
+          console.warn("Supabase URL or Anon Key is not configured correctly or is a placeholder.");
+          toast({ title: "Supabase Not Configured", description: "Please check your Supabase credentials in .env and restart the server.", variant: "destructive", duration: 10000});
+          setIsLoadingData(false); // Ensure loading stops if Supabase isn't configured
       }
     } else if (!authLoading && !session && isClient) {
-        setIsLoadingData(false);
-        setTasks([]);
+        setIsLoadingData(false); // Stop loading if user is not authenticated
+        setTasks([]); // Clear tasks if no user
     }
   }, [session, user, authLoading, loadTasksFromSupabase, toast, isClient]);
 
 
   const saveTaskOrderToSupabase = useCallback(async (tasksToSave: Task[]) => {
     if (!user) return;
-    setIsLoadingData(true);
+    setIsLoadingData(true); // Full page loader for this multi-update operation
     try {
       const updates = tasksToSave.map(task =>
         supabase
@@ -140,8 +139,7 @@ export default function HomePage() {
       results.forEach(result => {
         if (result.error) throw result.error;
       });
-      setTasks(tasksToSave); // Optimistically update local state or confirm based on results
-      // toast({ title: "Tasks Order Saved", description: "Your task order has been saved." }); // Consider if this toast is too frequent
+      setTasks(tasksToSave);
     } catch (error) {
       console.error("Error saving task order to Supabase:", error);
       toast({ title: "Save Order Error", description: "Could not save task order.", variant: "destructive" });
@@ -151,12 +149,12 @@ export default function HomePage() {
   }, [toast, user]);
 
 
-  const handleAddTask = useCallback(async (description: string, estimatedTime: number) => {
+  const handleAddTask = useCallback(async (description: string, estimatedTime: number): Promise<void> => {
     if (!user) {
       toast({ title: "Not Authenticated", description: "Please log in to add tasks.", variant: "destructive" });
-      return;
+      return Promise.reject(new Error("User not authenticated")); // Return a rejected promise
     }
-    setIsLoadingData(true);
+    // Removed setIsLoadingData(true) here; button loader handles this phase.
     const newTaskData = {
       user_id: user.id,
       description,
@@ -170,20 +168,17 @@ export default function HomePage() {
       if (error) throw error;
 
       toast({ title: "Task Added", description: `"${description}" has been added.` });
-      await loadTasksFromSupabase();
-    } catch (error: any) { // Type assertion to access potential Supabase error properties
+      await loadTasksFromSupabase(); // This will handle its own isLoadingData
+    } catch (error: any) {
       console.error("Error adding task to Supabase:", error);
       let errorMessage = "Could not add task.";
       if (error && error.message) {
         errorMessage = error.message;
       }
-      // You can also add more details from the error object if available and helpful
-      // if (error && error.details) errorMessage += ` Details: ${error.details}`;
-      // if (error && error.hint) errorMessage += ` Hint: ${error.hint}`;
       toast({ title: "Add Task Error", description: errorMessage, variant: "destructive" });
-    } finally {
-      setIsLoadingData(false);
+      return Promise.reject(error); // Propagate error
     }
+    // Removed setIsLoadingData(false) from finally block here.
   }, [tasks.length, toast, loadTasksFromSupabase, user]);
 
   const handleToggleComplete = useCallback(async (id: string) => {
@@ -214,7 +209,7 @@ export default function HomePage() {
     const taskToDelete = tasks.find(t => t.id === id);
     if (!taskToDelete) return;
 
-    setIsLoadingData(true);
+    setIsLoadingData(true); // Use full page loader for delete and reorder
     try {
       const { error: deleteError } = await supabase
         .from(TASKS_TABLE)
@@ -227,28 +222,20 @@ export default function HomePage() {
       const reorderedTasks = remainingTasks.map((task, index) => ({ ...task, orderIndex: index }));
 
       if (reorderedTasks.length > 0) {
-        const updates = reorderedTasks.map(task =>
-          supabase
-            .from(TASKS_TABLE)
-            .update({ orderIndex: task.orderIndex })
-            .eq('id', task.id)
-            .eq('user_id', user.id)
-        );
-        const results = await Promise.all(updates);
-        results.forEach(result => {
-          if (result.error) throw result.error;
-        });
+        await saveTaskOrderToSupabase(reorderedTasks); // saveTaskOrderToSupabase handles its own loading state
+      } else {
+        setTasks([]); // If no tasks left, just clear them
       }
-
-      setTasks(reorderedTasks);
+      
+      setTasks(reorderedTasks); // Update local state after DB operations
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
     } catch (error) {
       console.error("Error deleting task from Supabase:", error);
       toast({ title: "Delete Error", description: "Could not delete task.", variant: "destructive" });
     } finally {
-      setIsLoadingData(false);
+      setIsLoadingData(false); // Ensure loader stops
     }
-  }, [tasks, toast, user]);
+  }, [tasks, toast, user, saveTaskOrderToSupabase]);
 
   const handlePriorityChange = useCallback(async (id: string, priority: TaskPriority) => {
     if (!user) return;
@@ -258,7 +245,7 @@ export default function HomePage() {
         .update({ priority: priority })
         .eq('id', id)
         .eq('user_id', user.id);
-      if (error) {throw error;} // Corrected missing brace
+      if (error) {throw error;}
 
       setTasks((prevTasks) =>
         prevTasks.map((task) => (task.id === id ? { ...task, priority } : task))
@@ -268,7 +255,7 @@ export default function HomePage() {
       console.error("Error updating task priority:", error);
       toast({ title: "Update Error", description: "Could not update priority.", variant: "destructive" });
     }
-  }, [toast, user, tasks]);
+  }, [toast, user]); // Removed tasks dependency as it's not directly used for DB call
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
@@ -276,8 +263,8 @@ export default function HomePage() {
       ...task,
       orderIndex: index,
     }));
-    setTasks(tasksToSave);
-    await saveTaskOrderToSupabase(tasksToSave);
+    setTasks(tasksToSave); // Optimistic update
+    await saveTaskOrderToSupabase(tasksToSave); // This handles its own loading state
   }, [saveTaskOrderToSupabase, user]);
 
   const handleSmartSchedule = async () => {
@@ -312,7 +299,7 @@ export default function HomePage() {
         };
       });
 
-      await saveTaskOrderToSupabase(newOrderedTasksFromAI);
+      await saveTaskOrderToSupabase(newOrderedTasksFromAI); // This handles its own loading state
 
       toast({
         title: "Schedule Optimized!",
@@ -331,7 +318,7 @@ export default function HomePage() {
     }
   };
 
-  if (authLoading || (!session && isClient)) {
+  if (authLoading || (!session && isClient && router.pathname !== '/login' && router.pathname !== '/signup')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-foreground">{authLoading ? "Authenticating..." : "Redirecting..."}</p>
@@ -339,7 +326,7 @@ export default function HomePage() {
     );
   }
 
-  if (isLoadingData && session && user) { // Ensure user is also checked here
+  if (isLoadingData && session && user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-foreground">Loading tasks...</p>
