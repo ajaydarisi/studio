@@ -1,13 +1,11 @@
 
-import type { Timestamp } from 'firebase/firestore';
-
 export interface Task {
-  id: string;
+  id: string; // UUID from Supabase
   description: string;
   estimatedCompletionTime: number; // in minutes
   priority: 'high' | 'medium' | 'low';
   completed: boolean;
-  createdAt: Timestamp | Date | number; // Firestore Timestamp, Date, or number for local state
+  createdAt: number; // Unix timestamp in milliseconds (converted from ISO string)
   orderIndex: number;
 }
 
