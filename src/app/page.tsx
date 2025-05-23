@@ -9,10 +9,10 @@ import TaskForm from "@/components/TaskForm";
 import TaskList from "@/components/TaskList";
 import ProgressIndicator from "@/components/ProgressIndicator";
 import { useToast } from "@/hooks/use-toast";
-import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
-
-// Ensure uuid is installed: npm install uuid @types/uuid
-// (User should be prompted if not available, but for now assuming it's there or will be added)
+import { v4 as uuidv4 } from 'uuid';
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PlusCircle } from "lucide-react";
 
 // Sample initial tasks
 const initialTasks: Task[] = [
@@ -27,6 +27,7 @@ export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function HomePage() {
     };
     setTasks((prevTasks) => [...prevTasks, newTask]);
     toast({ title: "Task Added", description: `"${description}" has been added to your list.` });
+    setIsAddTaskDialogOpen(false); // Close dialog after adding task
   }, [toast]);
 
   const handleToggleComplete = useCallback((id: string) => {
@@ -115,13 +117,12 @@ export default function HomePage() {
       };
       const result: TaskListOutput = await suggestOptimalTaskOrder(inputForAI);
       
-      // Merge AI ordered tasks with existing task details (like 'completed' status)
       const newOrderedTasks = result.orderedTasks.map(aiTask => {
         const originalTask = tasks.find(t => t.id === aiTask.id);
         return {
-          ...aiTask, // This includes id, description, estimatedCompletionTime, priority from AI
+          ...aiTask,
           completed: originalTask?.completed || false,
-          createdAt: originalTask?.createdAt || Date.now(), // Preserve original creation or set new
+          createdAt: originalTask?.createdAt || Date.now(),
         };
       });
 
@@ -144,8 +145,6 @@ export default function HomePage() {
   };
   
   if (!isClient) {
-    // Render a loading state or null during SSR/SSG to avoid hydration mismatches with localStorage
-    // Or, a basic skeleton UI
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-foreground">Loading Day Architect...</p>
@@ -158,9 +157,28 @@ export default function HomePage() {
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <AppHeader onSmartSchedule={handleSmartSchedule} isScheduling={isScheduling} />
         
+        <div className="mb-6">
+          <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="lg" className="w-full md:w-auto shadow-sm hover:shadow-md transition-shadow">
+                <PlusCircle className="mr-2 h-5 w-5 text-accent" />
+                Add New Task
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center">
+                   <PlusCircle className="mr-2 h-6 w-6 text-accent" />
+                  Add New Task
+                </DialogTitle>
+              </DialogHeader>
+              <TaskForm onAddTask={handleAddTask} />
+            </DialogContent>
+          </Dialog>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2">
-            <TaskForm onAddTask={handleAddTask} />
             <TaskList
               tasks={tasks}
               setTasks={handleSetTasks}
