@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter }_ from 'next/navigation'; // useRouter might not be needed if AuthProvider handles redirect
+import { useRouter } from 'next/navigation'; // useRouter might not be needed if AuthProvider handles redirect
 import { UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
