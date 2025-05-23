@@ -8,7 +8,6 @@ import AppHeader from "@/components/AppHeader";
 import TaskList from "@/components/TaskList";
 import ProgressIndicator from "@/components/ProgressIndicator";
 import { useToast } from "@/hooks/use-toast";
-import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -115,18 +114,19 @@ export default function HomePage() {
       } else {
           console.warn("Supabase URL or Anon Key is not configured correctly or is a placeholder.");
           toast({ title: "Supabase Not Configured", description: "Please check your Supabase credentials in .env and restart the server.", variant: "destructive", duration: 10000});
-          setIsLoadingData(false); // Ensure loading stops if Supabase isn't configured
+          setIsLoadingData(false); 
       }
     } else if (!authLoading && !session && isClient) {
-        setIsLoadingData(false); // Stop loading if user is not authenticated
-        setTasks([]); // Clear tasks if no user
+        setIsLoadingData(false); 
+        setTasks([]); 
     }
   }, [session, user, authLoading, loadTasksFromSupabase, toast, isClient]);
 
 
-  const saveTaskOrderToSupabase = useCallback(async (tasksToSave: Task[]) => {
+  const saveTaskOrderToSupabase = useCallback(async (tasksToSave: Pick<Task, 'id' | 'orderIndex'>[]) => {
     if (!user) return;
-    setIsLoadingData(true); // Full page loader for this multi-update operation
+    // This function no longer manages isLoadingData or setTasks directly.
+    // It only performs DB operations.
     try {
       const updates = tasksToSave.map(task =>
         supabase
@@ -139,12 +139,10 @@ export default function HomePage() {
       results.forEach(result => {
         if (result.error) throw result.error;
       });
-      setTasks(tasksToSave);
     } catch (error) {
       console.error("Error saving task order to Supabase:", error);
       toast({ title: "Save Order Error", description: "Could not save task order.", variant: "destructive" });
-    } finally {
-      setIsLoadingData(false);
+      throw error; // Re-throw to be caught by caller
     }
   }, [toast, user]);
 
@@ -152,9 +150,9 @@ export default function HomePage() {
   const handleAddTask = useCallback(async (description: string, estimatedTime: number): Promise<void> => {
     if (!user) {
       toast({ title: "Not Authenticated", description: "Please log in to add tasks.", variant: "destructive" });
-      return Promise.reject(new Error("User not authenticated")); // Return a rejected promise
+      return Promise.reject(new Error("User not authenticated"));
     }
-    // Removed setIsLoadingData(true) here; button loader handles this phase.
+    
     const newTaskData = {
       user_id: user.id,
       description,
@@ -168,7 +166,7 @@ export default function HomePage() {
       if (error) throw error;
 
       toast({ title: "Task Added", description: `"${description}" has been added.` });
-      await loadTasksFromSupabase(); // This will handle its own isLoadingData
+      await loadTasksFromSupabase(); 
     } catch (error: any) {
       console.error("Error adding task to Supabase:", error);
       let errorMessage = "Could not add task.";
@@ -176,9 +174,8 @@ export default function HomePage() {
         errorMessage = error.message;
       }
       toast({ title: "Add Task Error", description: errorMessage, variant: "destructive" });
-      return Promise.reject(error); // Propagate error
+      return Promise.reject(error); 
     }
-    // Removed setIsLoadingData(false) from finally block here.
   }, [tasks.length, toast, loadTasksFromSupabase, user]);
 
   const handleToggleComplete = useCallback(async (id: string) => {
@@ -201,15 +198,15 @@ export default function HomePage() {
     } catch (error) {
       console.error("Error updating task completion in Supabase:", error);
       toast({ title: "Update Error", description: "Could not update task.", variant: "destructive" });
+      await loadTasksFromSupabase(); // Refetch on error to ensure consistency
     }
-  }, [tasks, toast, user]);
+  }, [tasks, toast, user, loadTasksFromSupabase]);
 
   const handleDeleteTask = useCallback(async (id: string) => {
     if (!user) return;
     const taskToDelete = tasks.find(t => t.id === id);
     if (!taskToDelete) return;
 
-    setIsLoadingData(true); // Use full page loader for delete and reorder
     try {
       const { error: deleteError } = await supabase
         .from(TASKS_TABLE)
@@ -219,23 +216,20 @@ export default function HomePage() {
       if (deleteError) throw deleteError;
 
       const remainingTasks = tasks.filter((task) => task.id !== id);
-      const reorderedTasks = remainingTasks.map((task, index) => ({ ...task, orderIndex: index }));
+      const taskOrderUpdates = remainingTasks.map((task, index) => ({ id: task.id, orderIndex: index }));
 
-      if (reorderedTasks.length > 0) {
-        await saveTaskOrderToSupabase(reorderedTasks); // saveTaskOrderToSupabase handles its own loading state
-      } else {
-        setTasks([]); // If no tasks left, just clear them
+      if (taskOrderUpdates.length > 0) {
+        await saveTaskOrderToSupabase(taskOrderUpdates);
       }
       
-      setTasks(reorderedTasks); // Update local state after DB operations
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
+      await loadTasksFromSupabase(); // Refetch tasks after successful delete and reorder
     } catch (error) {
       console.error("Error deleting task from Supabase:", error);
       toast({ title: "Delete Error", description: "Could not delete task.", variant: "destructive" });
-    } finally {
-      setIsLoadingData(false); // Ensure loader stops
+      await loadTasksFromSupabase(); // Refetch on error to ensure consistency
     }
-  }, [tasks, toast, user, saveTaskOrderToSupabase]);
+  }, [tasks, toast, user, saveTaskOrderToSupabase, loadTasksFromSupabase]);
 
   const handlePriorityChange = useCallback(async (id: string, priority: TaskPriority) => {
     if (!user) return;
@@ -254,18 +248,31 @@ export default function HomePage() {
     } catch (error) {
       console.error("Error updating task priority:", error);
       toast({ title: "Update Error", description: "Could not update priority.", variant: "destructive" });
+      await loadTasksFromSupabase(); // Refetch on error
     }
-  }, [toast, user]); // Removed tasks dependency as it's not directly used for DB call
+  }, [toast, user, loadTasksFromSupabase, tasks]); 
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
-    const tasksToSave = newTasks.map((task, index) => ({
-      ...task,
+    
+    const tasksToSaveForOrder = newTasks.map((task, index) => ({
+      id: task.id, // Only id and orderIndex needed for saveTaskOrderToSupabase
       orderIndex: index,
     }));
-    setTasks(tasksToSave); // Optimistic update
-    await saveTaskOrderToSupabase(tasksToSave); // This handles its own loading state
-  }, [saveTaskOrderToSupabase, user]);
+    
+    setTasks(newTasks); // Optimistic update for UI responsiveness during drag
+    try {
+      await saveTaskOrderToSupabase(tasksToSaveForOrder);
+      // No explicit loadTasksFromSupabase needed here if optimistic update is sufficient
+      // and saveTaskOrderToSupabase doesn't fail often. 
+      // For ultimate consistency, uncomment below:
+      // await loadTasksFromSupabase(); 
+    } catch (error) {
+        // If save failed, local state might be out of sync. Reload.
+        toast({ title: "Reorder Error", description: "Could not save new task order. Reverting.", variant: "destructive" });
+        await loadTasksFromSupabase();
+    }
+  }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase, toast]);
 
   const handleSmartSchedule = async () => {
     if (!user) {
@@ -288,18 +295,13 @@ export default function HomePage() {
       };
       const result: TaskListOutput = await suggestOptimalTaskOrder(inputForAI);
 
-      const newOrderedTasksFromAI = result.orderedTasks.map((aiTask, index) => {
-        const originalTask = tasks.find(t => t.id === aiTask.id);
-        return {
-          ...originalTask!,
-          ...aiTask,
-          userId: user.id,
-          orderIndex: index,
-          createdAt: originalTask?.createdAt || Date.now(),
-        };
-      });
+      const taskOrderUpdates = result.orderedTasks.map((aiTask, index) => ({
+        id: aiTask.id,
+        orderIndex: index,
+      }));
 
-      await saveTaskOrderToSupabase(newOrderedTasksFromAI); // This handles its own loading state
+      await saveTaskOrderToSupabase(taskOrderUpdates);
+      await loadTasksFromSupabase(); // Refetch to get the newly ordered tasks
 
       toast({
         title: "Schedule Optimized!",
@@ -313,6 +315,7 @@ export default function HomePage() {
         description: "Could not optimize the schedule. Please try again.",
         variant: "destructive",
       });
+       await loadTasksFromSupabase(); // Ensure consistent state on error
     } finally {
       setIsScheduling(false);
     }
