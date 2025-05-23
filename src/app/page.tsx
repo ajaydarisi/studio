@@ -5,14 +5,10 @@ import { useState, useEffect, useCallback } from "react";
 import type { Task, TaskPriority } from "@/types";
 import { suggestOptimalTaskOrder, type TaskListInput, type TaskListOutput } from "@/ai/flows/suggest-optimal-task-order";
 import AppHeader from "@/components/AppHeader";
-import TaskForm from "@/components/TaskForm";
 import TaskList from "@/components/TaskList";
 import ProgressIndicator from "@/components/ProgressIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from 'uuid';
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle } from "lucide-react";
 
 // Sample initial tasks
 const initialTasks: Task[] = [
@@ -27,7 +23,6 @@ export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [isScheduling, setIsScheduling] = useState(false);
-  const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -69,7 +64,6 @@ export default function HomePage() {
     };
     setTasks((prevTasks) => [...prevTasks, newTask]);
     toast({ title: "Task Added", description: `"${description}" has been added to your list.` });
-    setIsAddTaskDialogOpen(false); // Close dialog after adding task
   }, [toast]);
 
   const handleToggleComplete = useCallback((id: string) => {
@@ -155,29 +149,13 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <AppHeader onSmartSchedule={handleSmartSchedule} isScheduling={isScheduling} />
+        <AppHeader 
+          onSmartSchedule={handleSmartSchedule} 
+          isScheduling={isScheduling}
+          onAddTask={handleAddTask} 
+        />
         
-        <div className="mb-6">
-          <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="lg" className="w-full md:w-auto shadow-sm hover:shadow-md transition-shadow">
-                <PlusCircle className="mr-2 h-5 w-5 text-accent" />
-                Add New Task
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center">
-                   <PlusCircle className="mr-2 h-6 w-6 text-accent" />
-                  Add New Task
-                </DialogTitle>
-              </DialogHeader>
-              <TaskForm onAddTask={handleAddTask} />
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
           <div className="md:col-span-2">
             <TaskList
               tasks={tasks}
