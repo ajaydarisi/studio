@@ -1,7 +1,8 @@
 
 "use client";
 
-import type { FC, DragEvent, useState } from 'react';
+import type { FC, DragEvent } from 'react';
+import { useState } from 'react';
 import type { Task, TaskPriority } from "@/types";
 import TaskItem from "./TaskItem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
