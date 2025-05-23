@@ -47,18 +47,59 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
     }
   };
 
+  const AuthButtonBlock = () => (
+    <>
+      {authLoading ? (
+         <Button variant="outline" size="lg" disabled>Loading...</Button>
+      ) : user ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
+              <UserCircle className="mr-2 h-5 w-5" />
+              {user.email?.split('@')[0] || 'Account'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <Button onClick={() => router.push('/login')} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
+          <LogIn className="mr-2 h-5 w-5" />
+          Login
+        </Button>
+      )}
+    </>
+  );
+
   return (
-    <header className="flex flex-wrap items-center justify-between mb-6 pb-4 border-b gap-4">
-      <div className="flex items-center space-x-3">
-        <CalendarCheck2 className="h-8 w-8 text-primary" />
-        <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
+    // Main header container: stacks vertically on mobile, becomes a row on sm+ screens, justifies space between main children
+    <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-4 border-b gap-4">
+      {/* Top section for mobile (Logo + Auth Button), Left section for desktop (Logo) */}
+      <div className="flex items-center justify-between w-full sm:w-auto">
+        {/* Logo and Title */}
+        <div className="flex items-center space-x-3">
+          <CalendarCheck2 className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
+        </div>
+        {/* Auth Button: Visible only on mobile screens (<sm) */}
+        <div className="sm:hidden">
+          <AuthButtonBlock />
+        </div>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2"> {/* Ensure buttons wrap and align to end */}
+
+      {/* Action Buttons & Desktop Auth Button: Stacks on mobile below logo, groups to right on desktop */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
         {user && (
           <>
             <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
+                <Button variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
                   <PlusCircle className="mr-2 h-5 w-5 text-accent" />
                   Add New Task
                 </Button>
@@ -74,38 +115,16 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
               </DialogContent>
             </Dialog>
 
-            <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
+            <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
               <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin' : ''}`} />
               {isScheduling ? "Optimizing..." : "Smart Schedule"}
             </Button>
           </>
         )}
-
-        {authLoading ? (
-           <Button variant="outline" size="lg" disabled>Loading...</Button>
-        ) : user ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
-                <UserCircle className="mr-2 h-5 w-5" />
-                {user.email?.split('@')[0] || 'Account'}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Button onClick={() => router.push('/login')} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
-            <LogIn className="mr-2 h-5 w-5" />
-            Login
-          </Button>
-        )}
+        {/* Auth Button: Hidden on mobile (<sm), visible on sm screens and up */}
+        <div className="hidden sm:flex sm:items-center">
+          <AuthButtonBlock />
+        </div>
       </div>
     </header>
   );
