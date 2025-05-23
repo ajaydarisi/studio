@@ -29,6 +29,9 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         {children}
         <Toaster />
+        <div className="fixed bottom-4 right-4 text-xs text-muted-foreground opacity-50 select-none pointer-events-none">
+          Ajay Darisi
+        </div>
       </body>
     </html>
   );
