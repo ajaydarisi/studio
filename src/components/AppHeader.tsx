@@ -1,11 +1,12 @@
 
 "use client";
 
-import React, { type FC, useState } from 'react';
+import React, { type FC } from 'react'; // Removed useState as it's no longer needed here for the dialog
 import { Button } from "@/components/ui/button";
 import { Sparkles, CalendarCheck2, PlusCircle, LogIn, LogOut, UserCircle, UserCog } from "lucide-react"; 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import TaskForm from "@/components/TaskForm";
+// Dialog related imports are removed as the dialog is now in page.tsx
+// import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+// import TaskForm from "@/components/TaskForm"; // TaskForm is used in page.tsx's dialog
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,29 +18,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
-import { ThemeToggleButton } from '@/components/ThemeToggleButton'; // Import ThemeToggleButton
+import { ThemeToggleButton } from '@/components/ThemeToggleButton';
 
 
 interface AppHeaderProps {
   onSmartSchedule: () => void;
   isScheduling: boolean;
-  onAddTask: (description: string, estimatedTime: number) => Promise<void>;
+  onTriggerAddTask: () => void; // Renamed from onAddTask, this now just opens the dialog
 }
 
-const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTask }) => {
-  const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
+const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onTriggerAddTask }) => {
   const { user, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-
-  const handleInternalAddTask = async (description: string, estimatedTime: number): Promise<void> => {
-    try {
-      await onAddTask(description, estimatedTime);
-      setIsAddTaskDialogOpen(false); 
-    } catch (error) {
-      console.error("Error from onAddTask in AppHeader:", error);
-    }
-  };
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -91,47 +82,31 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
 
   return (
     <header className="mb-6 pb-4 border-b">
-      <div className="flex items-center justify-between w-full mb-2 sm:mb-0">
-        <div className="flex items-center space-x-3">
-          <CalendarCheck2 className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
+      <div className="flex flex-col sm:flex-row items-center justify-between w-full">
+        {/* Top row for mobile: Logo and Auth/Theme */}
+        <div className="w-full flex items-center justify-between mb-4 sm:mb-0">
+            <div className="flex items-center space-x-3">
+                <CalendarCheck2 className="h-8 w-8 text-primary" />
+                <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
+            </div>
+            <div className="flex items-center space-x-2">
+                <ThemeToggleButton />
+                <AuthButtonBlock />
+            </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <ThemeToggleButton />
-          <div className="sm:hidden"> 
-            <AuthButtonBlock />
-          </div>
-          <div className="hidden sm:flex">
-            <AuthButtonBlock />
-          </div>
-        </div>
-      </div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 w-full mt-4 sm:mt-2">
+        {/* Bottom row for mobile (action buttons), part of right group for desktop */}
         {user && (
-          <>
-             <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
-              <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin' : ''}`} />
-              {isScheduling ? "Optimizing..." : "Smart Schedule"}
-            </Button>
-            <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
-                  <PlusCircle className="mr-2 h-5 w-5 text-accent" />
-                  Add New Task
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center">
-                    <PlusCircle className="mr-2 h-6 w-6 text-accent" />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 w-full sm:w-auto mt-4 sm:mt-0">
+                <Button onClick={onTriggerAddTask} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto hidden sm:flex"> {/* Hidden on mobile, shown on sm+ */}
+                    <PlusCircle className="mr-2 h-5 w-5 text-accent" />
                     Add New Task
-                  </DialogTitle>
-                </DialogHeader>
-                <TaskForm onAddTask={handleInternalAddTask} />
-              </DialogContent>
-            </Dialog>
-          </>
+                </Button>
+                 <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
+                    <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin' : ''}`} />
+                    {isScheduling ? "Optimizing..." : "Smart Schedule"}
+                </Button>
+            </div>
         )}
       </div>
     </header>
@@ -139,3 +114,5 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
 };
 
 export default React.memo(AppHeader);
+
+    

@@ -7,6 +7,10 @@ import { suggestOptimalTaskOrder, type TaskListInput, type TaskListOutput } from
 import AppHeader from "@/components/AppHeader";
 import TaskList from "@/components/TaskList";
 import ProgressIndicator from "@/components/ProgressIndicator";
+import TaskForm from "@/components/TaskForm";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Plus, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabase';
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,6 +44,7 @@ export default function HomePage() {
   const [isClient, setIsClient] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   const { toast } = useToast();
   const { session, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -160,7 +165,6 @@ export default function HomePage() {
     };
 
     try {
-      // Use .select().single() to get the inserted row back
       const { data: insertedTask, error } = await supabase
         .from(TASKS_TABLE)
         .insert(newTaskData)
@@ -173,7 +177,6 @@ export default function HomePage() {
         setTasks((prevTasks) => [...prevTasks, mapSupabaseRowToTask(insertedTask)]);
         toast({ title: "Task Added", description: `"${description}" has been added.` });
       } else {
-        // Fallback to reload if data isn't returned as expected
         await loadTasksFromSupabase();
         toast({ title: "Task Added", description: `"${description}" has been added. List refreshed.` });
       }
@@ -188,13 +191,23 @@ export default function HomePage() {
     }
   }, [tasks.length, toast, loadTasksFromSupabase, user]);
 
+  const handleFormSubmitAddTask = async (description: string, estimatedTime: number) => {
+    try {
+      await handleAddTask(description, estimatedTime);
+      setIsAddTaskDialogOpen(false); // Close dialog on success
+    } catch (error) {
+      // Error is already toasted by handleAddTask
+      // Optionally, keep the dialog open on error, or close it
+      // setIsAddTaskDialogOpen(false); 
+    }
+  };
+
   const handleToggleComplete = useCallback(async (id: string) => {
     if (!user) return;
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     const newCompletedStatus = !task.completed;
     
-    // Optimistic UI update
     setTasks((prevTasks) =>
       prevTasks.map((t) => (t.id === id ? { ...t, completed: newCompletedStatus } : t))
     );
@@ -206,7 +219,6 @@ export default function HomePage() {
         .eq('id', id)
         .eq('user_id', user.id);
       if (error) {
-        // Revert optimistic update and refetch on error
         setTasks((prevTasks) =>
           prevTasks.map((t) => (t.id === id ? { ...t, completed: task.completed } : t))
         );
@@ -217,7 +229,6 @@ export default function HomePage() {
       toast({ title: "Task Updated" });
     } catch (error) {
       console.error("Error updating task completion in Supabase:", error);
-      // Error already handled, or refetch was done if needed.
     }
   }, [tasks, toast, user, loadTasksFromSupabase]);
 
@@ -226,7 +237,6 @@ export default function HomePage() {
     const taskToDelete = tasks.find(t => t.id === id);
     if (!taskToDelete) return;
 
-    // Optimistic UI update
     const originalTasks = [...tasks];
     setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
 
@@ -242,18 +252,15 @@ export default function HomePage() {
       const taskOrderUpdates = remainingTasks.map((task, index) => ({ id: task.id, orderIndex: index }));
 
       if (taskOrderUpdates.length > 0) {
-        // If reordering fails, we might want to reload all tasks
         await saveTaskOrderToSupabase(taskOrderUpdates);
       }
       
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
-      // Successful delete and reorder, refetch to ensure full consistency
-      // especially if orderIndex logic becomes more complex or if other clients modify data.
       await loadTasksFromSupabase();
     } catch (error) {
       console.error("Error deleting task from Supabase:", error);
       toast({ title: "Delete Error", description: "Could not delete task. Reverting.", variant: "destructive" });
-      setTasks(originalTasks); // Revert optimistic update
+      setTasks(originalTasks); 
       await loadTasksFromSupabase(); 
     }
   }, [tasks, toast, user, saveTaskOrderToSupabase, loadTasksFromSupabase]);
@@ -262,7 +269,6 @@ export default function HomePage() {
     if (!user) return;
     const oldTasks = [...tasks];
     
-    // Optimistic UI Update
     setTasks((prevTasks) =>
       prevTasks.map((task) => (task.id === id ? { ...task, priority } : task))
     );
@@ -274,15 +280,14 @@ export default function HomePage() {
         .eq('id', id)
         .eq('user_id', user.id);
       if (error) {
-        setTasks(oldTasks); // Revert on error
+        setTasks(oldTasks); 
         toast({ title: "Update Error", description: "Could not update priority.", variant: "destructive" });
-        await loadTasksFromSupabase(); // Refetch to ensure consistency
+        await loadTasksFromSupabase(); 
         throw error;
       }
       toast({ title: "Priority Updated" });
     } catch (error) {
       console.error("Error updating task priority:", error);
-      // Error already handled, or refetch was done if needed.
     }
   }, [tasks, toast, user, loadTasksFromSupabase]); 
 
@@ -295,16 +300,14 @@ export default function HomePage() {
     }));
     
     const originalTasks = [...tasks];
-    setTasks(newTasks); // Optimistic update for UI responsiveness during drag
+    setTasks(newTasks); 
     
     try {
       await saveTaskOrderToSupabase(tasksToSaveForOrder);
-      // Consider if loadTasksFromSupabase is needed here. If saveTaskOrderToSupabase is reliable,
-      // optimistic update might be enough. For max consistency:
-      // await loadTasksFromSupabase();
+      // Potentially call loadTasksFromSupabase() here if strict consistency is needed after drag
     } catch (error) {
         toast({ title: "Reorder Error", description: "Could not save new task order. Reverting.", variant: "destructive" });
-        setTasks(originalTasks); // Revert optimistic update
+        setTasks(originalTasks); 
         await loadTasksFromSupabase();
     }
   }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase, toast, tasks]);
@@ -378,7 +381,7 @@ export default function HomePage() {
         <AppHeader
           onSmartSchedule={handleSmartSchedule}
           isScheduling={isScheduling}
-          onAddTask={handleAddTask}
+          onTriggerAddTask={() => setIsAddTaskDialogOpen(true)}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-8">
@@ -396,11 +399,36 @@ export default function HomePage() {
           </div>
         </div>
       </main>
+
+      {user && (
+        <Button
+          className="sm:hidden fixed bottom-6 right-6 rounded-full h-16 w-16 shadow-xl z-50 flex items-center justify-center"
+          size="icon"
+          onClick={() => setIsAddTaskDialogOpen(true)}
+          aria-label="Add New Task"
+        >
+          <Plus className="h-8 w-8" />
+        </Button>
+      )}
+
+      <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <PlusCircle className="mr-2 h-6 w-6 text-accent" />
+              Add New Task
+            </DialogTitle>
+          </DialogHeader>
+          <TaskForm onAddTask={handleFormSubmitAddTask} />
+        </DialogContent>
+      </Dialog>
+
       <footer className="text-center py-6 text-sm text-muted-foreground border-t mt-auto">
         <p>&copy; {new Date().getFullYear()} Day Architect. Plan your success.</p>
       </footer>
     </div>
   );
 }
+    
 
     
