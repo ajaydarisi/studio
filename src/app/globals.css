@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -62,48 +63,44 @@ body {
   }
 
   .dark {
-    /* For dark mode, if ever implemented, these would be adjusted.
-       Keeping existing dark mode variables for now, but they won't match the light theme's style.
-       A proper dark theme would require new color definitions.
-    */
-    --background: 220 18% 15%; /* Dark Slate Blue */
-    --foreground: 210 25% 96.1%; /* Light Gray */
+    --background: 220 20% 12%; /* Dark Slate Gray */
+    --foreground: 210 25% 90%; /* Lighter Gray for better readability */
 
-    --card: 220 18% 18%; /* Darker Slate Blue */
-    --card-foreground: 210 25% 96.1%; /* Light Gray */
+    --card: 220 20% 16%; /* Slightly Lighter Dark Slate Gray */
+    --card-foreground: 210 25% 90%; 
 
-    --popover: 220 18% 18%; /* Darker Slate Blue */
-    --popover-foreground: 210 25% 96.1%; /* Light Gray */
+    --popover: 220 20% 16%; 
+    --popover-foreground: 210 25% 90%;
 
-    --primary: 207 86% 68%; /* Calm Blue - can remain same or adjusted for dark */
-    --primary-foreground: 220 18% 10%; /* Very Dark for contrast on blue */
+    --primary: 207 80% 60%; /* Calm Blue - Adjusted for dark mode */
+    --primary-foreground: 210 40% 98%; /* Very Light Gray/Off-white */
 
-    --secondary: 220 18% 25%; /* Medium Slate Blue */
-    --secondary-foreground: 210 25% 96.1%; /* Light Gray */
+    --secondary: 220 15% 28%; /* Medium Dark Slate */
+    --secondary-foreground: 210 25% 90%;
 
-    --muted: 220 18% 22%; /* Muted Dark Slate Blue */
-    --muted-foreground: 210 20% 65%; /* Lighter Muted Gray */
+    --muted: 220 15% 22%; /* Darker Muted Slate */
+    --muted-foreground: 210 20% 60%; /* Lighter Muted Gray */
 
-    --accent: 174 44% 51%; /* Soft Teal - can remain same or adjusted */
-    --accent-foreground: 220 18% 10%; /* Very Dark for contrast on teal */
+    --accent: 174 40% 45%; /* Soft Teal - Adjusted for dark mode */
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 30.6%; /* Kept original dark destructive */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 18% 30%; /* Medium Dark Slate Border */
-    --input: 220 18% 25%; /* Medium Slate Blue Input BG */
-    --ring: 207 86% 75%; /* Lighter Calm Blue for focus rings */
+    --border: 220 15% 25%; /* Darker Border */
+    --input: 220 15% 22%; /* Darker Input BG */
+    --ring: 207 80% 60%; /* Primary for focus rings */
 
-    --chart-1: 207 80% 60%;
-    --chart-2: 174 40% 45%;
-    --chart-3: 220 45% 55%;
-    --chart-4: 190 35% 50%;
-    --chart-5: 200 25% 45%;
+    --chart-1: 207 75% 55%; 
+    --chart-2: 174 35% 40%;
+    --chart-3: 220 40% 50%;
+    --chart-4: 190 30% 45%;
+    --chart-5: 200 20% 40%;
 
     /* Dark Priority border colors */
-    --border-priority-high: 0 70% 55%; /* Slightly desaturated red for dark mode */
-    --border-priority-medium: 35 80% 55%; /* Slightly desaturated yellow/amber for dark mode */
-    --border-priority-low: 130 50% 45%; /* Slightly desaturated green for dark mode */
+    --border-priority-high: 0 70% 50%; /* Slightly desaturated red for dark mode */
+    --border-priority-medium: 35 75% 50%; /* Slightly desaturated yellow/amber for dark mode */
+    --border-priority-low: 130 45% 40%; /* Slightly desaturated green for dark mode */
   }
 }
 
@@ -113,5 +110,6 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    @apply transition-colors duration-300; /* Smooth transition for theme changes */
   }
 }
