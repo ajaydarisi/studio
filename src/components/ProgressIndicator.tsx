@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { FC } from 'react';
+import React, { type FC } from 'react'; // Added React
 import type { Task } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -55,7 +55,6 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
               {formatTime(completedEstimatedTime)} of {formatTime(totalEstimatedTime)}
             </span>
           </div>
-          {/* The track will use default bg-secondary, indicator will be bg-accent (green/teal) */}
           <Progress value={timeProgress} aria-label={`${timeProgress.toFixed(0)}% time completed`} className="h-3" indicatorClassName="bg-accent" />
         </div>
          {totalTasks > 0 && completedTasks === totalTasks && (
@@ -73,4 +72,6 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
   );
 };
 
-export default ProgressIndicator;
+export default React.memo(ProgressIndicator);
+
+    

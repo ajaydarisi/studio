@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { FC, DragEvent } from 'react';
+import React, { type FC, type DragEvent } from 'react'; // Added React
 import type { Task, TaskPriority } from "@/types";
 import { PRIORITIES, PRIORITY_LABELS } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,7 +36,7 @@ const TaskItem: FC<TaskItemProps> = ({
     onToggleComplete(task.id);
   };
 
-  const handlePriorityChange = (value: string) => {
+  const handlePriorityValueChange = (value: string) => {
     onPriorityChange(task.id, value as TaskPriority);
   };
 
@@ -72,10 +72,8 @@ const TaskItem: FC<TaskItemProps> = ({
           className="shrink-0 mt-[5px]"
         />
         
-        {/* Main content area: stacks on mobile, rows on sm+ */}
         <div className="flex-grow flex flex-col sm:flex-row sm:items-center sm:justify-between min-w-0">
             
-            {/* Description and Time block (Top on mobile, Left on sm+) */}
             <div className="flex-grow min-w-0 sm:mr-4">
                 <label
                     htmlFor={`task-${task.id}`}
@@ -93,9 +91,8 @@ const TaskItem: FC<TaskItemProps> = ({
                 </div>
             </div>
 
-            {/* Controls block (Priority & Delete) (Bottom on mobile, Right on sm+) */}
             <div className="mt-3 sm:mt-0 flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 sm:shrink-0 w-full sm:w-auto">
-                <Select value={task.priority} onValueChange={handlePriorityChange}>
+                <Select value={task.priority} onValueChange={handlePriorityValueChange}>
                     <SelectTrigger 
                         className="w-full sm:w-[120px] h-9 text-xs" 
                         aria-label={`Priority: ${PRIORITY_LABELS[task.priority]}`}
@@ -116,13 +113,13 @@ const TaskItem: FC<TaskItemProps> = ({
                     onClick={() => onDelete(task.id)}
                     aria-label={`Delete task: ${task.description}`}
                     className={cn(
-                        "text-muted-foreground hover:text-destructive flex items-center", // Base styles
-                        "w-full justify-start px-3 py-2 h-auto text-sm", // Mobile: looks like a normal button item
-                        "sm:w-9 sm:h-9 sm:p-0 sm:justify-center" // Desktop: icon button style
+                        "text-muted-foreground hover:text-destructive flex items-center", 
+                        "w-full justify-start px-3 py-2 h-auto text-sm", 
+                        "sm:w-9 sm:h-9 sm:p-0 sm:justify-center" 
                     )}
                 >
                     <Trash2 className="h-4 w-4 shrink-0" />
-                    <span className="ml-2 sm:hidden">Delete Task</span> {/* Text only visible on mobile */}
+                    <span className="ml-2 sm:hidden">Delete Task</span>
                 </Button>
             </div>
         </div>
@@ -131,4 +128,6 @@ const TaskItem: FC<TaskItemProps> = ({
   );
 };
 
-export default TaskItem;
+export default React.memo(TaskItem);
+
+    

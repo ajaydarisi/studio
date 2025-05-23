@@ -1,8 +1,7 @@
 
 "use client";
 
-import type { FC, DragEvent } from 'react';
-import { useState } from 'react';
+import React, { type FC, type DragEvent, useState } from 'react'; // Added React
 import type { Task, TaskPriority } from "@/types";
 import TaskItem from "./TaskItem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,11 +28,11 @@ const TaskList: FC<TaskListProps> = ({
   const handleDragStart = (event: DragEvent<HTMLDivElement>, taskId: string) => {
     setDraggedTaskId(taskId);
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", taskId); // Necessary for Firefox
+    event.dataTransfer.setData("text/plain", taskId); 
   };
   
   const handleDragOver = (event: DragEvent<HTMLDivElement>, taskId: string) => {
-    event.preventDefault(); // Allow drop
+    event.preventDefault(); 
     if (taskId !== dragOverTaskId) {
       setDragOverTaskId(taskId);
     }
@@ -56,7 +55,7 @@ const TaskList: FC<TaskListProps> = ({
     const [draggedItem] = newTasks.splice(draggedItemIndex, 1);
     newTasks.splice(targetItemIndex, 0, draggedItem);
     
-    setTasks(newTasks);
+    setTasks(newTasks); // This calls handleSetTasks from page.tsx, which handles DB update
     setDraggedTaskId(null);
     setDragOverTaskId(null);
   };
@@ -93,8 +92,6 @@ const TaskList: FC<TaskListProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
-          // Handle drop on empty space or end of list if needed
-          // For simplicity, drop is handled on items
           handleDragEnd();
         }}>
         {tasks.map((task) => (
@@ -119,4 +116,6 @@ const TaskList: FC<TaskListProps> = ({
   );
 };
 
-export default TaskList;
+export default React.memo(TaskList);
+
+    

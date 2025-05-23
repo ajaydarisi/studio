@@ -14,9 +14,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { FC } from 'react';
-import { useState } from 'react'; // Added useState
-import { Loader2 } from "lucide-react"; // Added Loader2 for spinner
+import React, { type FC, useState } from 'react'; // Added React
+import { Loader2 } from "lucide-react"; 
 
 const taskFormSchema = z.object({
   description: z.string().min(1, { message: "Description is required." }).max(200, { message: "Description must be 200 characters or less." }),
@@ -26,11 +25,11 @@ const taskFormSchema = z.object({
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 interface TaskFormProps {
-  onAddTask: (description: string, estimatedTime: number) => Promise<void>; // Updated to return Promise<void>
+  onAddTask: (description: string, estimatedTime: number) => Promise<void>; 
 }
 
 const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Local loading state
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -43,10 +42,10 @@ const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
     setIsSubmittingForm(true);
     try {
       await onAddTask(data.description, data.estimatedCompletionTime);
-      form.reset(); // Reset form on successful submission
+      form.reset(); 
     } catch (error) {
-      // Error handling might be done by the parent, or add a local error display
       console.error("Error in TaskForm onSubmit:", error);
+      // Toast for this error is likely handled by the parent (AppHeader/HomePage)
     } finally {
       setIsSubmittingForm(false);
     }
@@ -96,4 +95,6 @@ const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
   );
 };
 
-export default TaskForm;
+export default React.memo(TaskForm);
+
+    
