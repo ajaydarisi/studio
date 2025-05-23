@@ -53,7 +53,7 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
         <CalendarCheck2 className="h-8 w-8 text-primary" />
         <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
       </div>
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-wrap items-center justify-end gap-2"> {/* Ensure buttons wrap and align to end */}
         {user && (
           <>
             <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
