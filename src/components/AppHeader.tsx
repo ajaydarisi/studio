@@ -97,6 +97,11 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
         {user && (
           <>
+            <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
+              <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin' : ''}`} />
+              {isScheduling ? "Optimizing..." : "Smart Schedule"}
+            </Button>
+            
             <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
@@ -114,11 +119,6 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onAddTas
                 <TaskForm onAddTask={handleInternalAddTask} />
               </DialogContent>
             </Dialog>
-
-            <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
-              <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin' : ''}`} />
-              {isScheduling ? "Optimizing..." : "Smart Schedule"}
-            </Button>
           </>
         )}
         {/* Auth Button: Hidden on mobile (<sm), visible on sm screens and up */}
