@@ -47,7 +47,7 @@ export default function HomePage() {
   const mapSupabaseRowToTask = (row: any): Task => {
     return {
       id: row.id,
-      userId: row.user_id, 
+      userId: row.user_id,
       description: row.description,
       estimatedCompletionTime: row.estimatedCompletionTime,
       priority: row.priority,
@@ -104,10 +104,10 @@ export default function HomePage() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast, user]); 
+  }, [toast, user]);
 
   useEffect(() => {
-    if (session && user && isClient) { 
+    if (session && user && isClient) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -119,8 +119,8 @@ export default function HomePage() {
           setIsLoadingData(false);
       }
     } else if (!authLoading && !session && isClient) {
-        setIsLoadingData(false); 
-        setTasks([]); 
+        setIsLoadingData(false);
+        setTasks([]);
     }
   }, [session, user, authLoading, loadTasksFromSupabase, toast, isClient]);
 
@@ -134,7 +134,7 @@ export default function HomePage() {
           .from(TASKS_TABLE)
           .update({ orderIndex: task.orderIndex })
           .eq('id', task.id)
-          .eq('user_id', user.id) 
+          .eq('user_id', user.id)
       );
       const results = await Promise.all(updates);
       results.forEach(result => {
@@ -158,7 +158,7 @@ export default function HomePage() {
     }
     setIsLoadingData(true);
     const newTaskData = {
-      user_id: user.id, 
+      user_id: user.id,
       description,
       estimatedCompletionTime: estimatedTime,
       priority: 'medium' as TaskPriority,
@@ -168,9 +168,9 @@ export default function HomePage() {
     try {
       const { error } = await supabase.from(TASKS_TABLE).insert(newTaskData);
       if (error) throw error;
-      
+
       toast({ title: "Task Added", description: `"${description}" has been added.` });
-      await loadTasksFromSupabase(); 
+      await loadTasksFromSupabase();
     } catch (error: any) { // Type assertion to access potential Supabase error properties
       console.error("Error adding task to Supabase:", error);
       let errorMessage = "Could not add task.";
@@ -225,9 +225,9 @@ export default function HomePage() {
 
       const remainingTasks = tasks.filter((task) => task.id !== id);
       const reorderedTasks = remainingTasks.map((task, index) => ({ ...task, orderIndex: index }));
-      
+
       if (reorderedTasks.length > 0) {
-        const updates = reorderedTasks.map(task => 
+        const updates = reorderedTasks.map(task =>
           supabase
             .from(TASKS_TABLE)
             .update({ orderIndex: task.orderIndex })
@@ -264,11 +264,11 @@ export default function HomePage() {
         prevTasks.map((task) => (task.id === id ? { ...task, priority } : task))
       );
       toast({ title: "Priority Updated" });
-    } catch (error) {     
+    } catch (error) {
       console.error("Error updating task priority:", error);
       toast({ title: "Update Error", description: "Could not update priority.", variant: "destructive" });
     }
-  }, [toast, user, tasks]); 
+  }, [toast, user, tasks]);
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
@@ -276,7 +276,7 @@ export default function HomePage() {
       ...task,
       orderIndex: index,
     }));
-    setTasks(tasksToSave); 
+    setTasks(tasksToSave);
     await saveTaskOrderToSupabase(tasksToSave);
   }, [saveTaskOrderToSupabase, user]);
 
@@ -306,12 +306,12 @@ export default function HomePage() {
         return {
           ...originalTask!,
           ...aiTask,
-          userId: user.id, 
+          userId: user.id,
           orderIndex: index,
           createdAt: originalTask?.createdAt || Date.now(),
         };
       });
-      
+
       await saveTaskOrderToSupabase(newOrderedTasksFromAI);
 
       toast({
@@ -331,14 +331,14 @@ export default function HomePage() {
     }
   };
 
-  if (authLoading || (!session && isClient)) { 
+  if (authLoading || (!session && isClient)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-foreground">{authLoading ? "Authenticating..." : "Redirecting..."}</p>
       </div>
     );
   }
-  
+
   if (isLoadingData && session && user) { // Ensure user is also checked here
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -349,8 +349,8 @@ export default function HomePage() {
 
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
+      <main className="container mx-auto px-4 py-8 max-w-4xl flex-grow">
         <AppHeader
           onSmartSchedule={handleSmartSchedule}
           isScheduling={isScheduling}
@@ -372,7 +372,7 @@ export default function HomePage() {
           </div>
         </div>
       </main>
-      <footer className="text-center py-6 text-sm text-muted-foreground border-t mt-12">
+      <footer className="text-center py-6 text-sm text-muted-foreground border-t mt-auto">
         <p>&copy; {new Date().getFullYear()} Day Architect. Plan your success.</p>
       </footer>
     </div>

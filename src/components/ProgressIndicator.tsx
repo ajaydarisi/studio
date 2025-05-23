@@ -20,7 +20,8 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
   const completedEstimatedTime = tasks
     .filter((task) => task.completed)
     .reduce((sum, task) => sum + (task.estimatedCompletionTime || 0), 0);
-  const timeProgress = totalEstimatedTime > 0 ? (completedEstimatedTime / totalEstimatedTime) * 100 : 0;
+  // const timeProgress = totalEstimatedTime > 0 ? (completedEstimatedTime / totalEstimatedTime) * 100 : 0; // Original calculation
+  const timeProgress = 100; // Always show full progress for Time Progress bar
 
   const formatTime = (minutes: number) => {
     if (minutes < 60) return `${minutes}m`;
@@ -51,10 +52,11 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm font-medium text-foreground">Time Progress</span>
             <span className="text-sm text-muted-foreground">
+              {/* Label can still show actual time if desired, or be static */}
               {formatTime(completedEstimatedTime)} of {formatTime(totalEstimatedTime)}
             </span>
           </div>
-          <Progress value={timeProgress} aria-label={`${timeProgress.toFixed(0)}% time completed`} className="h-3 bg-accent" indicatorClassName="bg-accent" />
+          <Progress value={timeProgress} aria-label="Time progress 100% completed" className="h-3 bg-accent" indicatorClassName="bg-accent" />
         </div>
          {totalTasks > 0 && completedTasks === totalTasks && (
           <p className="text-center text-lg font-semibold text-accent pt-2">
