@@ -1,11 +1,14 @@
 
+import type { Timestamp } from 'firebase/firestore';
+
 export interface Task {
   id: string;
   description: string;
   estimatedCompletionTime: number; // in minutes
   priority: 'high' | 'medium' | 'low';
   completed: boolean;
-  createdAt: number; // timestamp for sorting
+  createdAt: Timestamp | Date | number; // Firestore Timestamp, Date, or number for local state
+  orderIndex: number;
 }
 
 export type TaskPriority = Task['priority'];

@@ -9,90 +9,246 @@ import TaskList from "@/components/TaskList";
 import ProgressIndicator from "@/components/ProgressIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from 'uuid';
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
 
-// Sample initial tasks
-const initialTasks: Task[] = [
-  { id: uuidv4(), description: "Morning workout session", estimatedCompletionTime: 45, priority: 'medium', completed: true, createdAt: Date.now() - 300000 },
-  { id: uuidv4(), description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high', completed: false, createdAt: Date.now() - 200000 },
-  { id: uuidv4(), description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high', completed: false, createdAt: Date.now() - 100000 },
-  { id: uuidv4(), description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low', completed: false, createdAt: Date.now() },
+// Sample initial tasks if Firestore is empty
+const initialTasksSeed: Omit<Task, 'id' | 'createdAt'>[] = [
+  { description: "Morning workout session", estimatedCompletionTime: 45, priority: 'medium', completed: true, orderIndex: 0 },
+  { description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high', completed: false, orderIndex: 1 },
+  { description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high', completed: false, orderIndex: 2 },
+  { description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low', completed: false, orderIndex: 3 },
 ];
 
+const TASKS_COLLECTION = "tasks";
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isScheduling, setIsScheduling] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    setIsClient(true);
-    // Load tasks from local storage or use initialTasks
-    const storedTasks = localStorage.getItem("dayArchitectTasks");
-    if (storedTasks) {
-      try {
-        const parsedTasks = JSON.parse(storedTasks);
-        // Basic validation
-        if (Array.isArray(parsedTasks) && parsedTasks.every(task => task.id && typeof task.description === 'string')) {
-          setTasks(parsedTasks);
-        } else {
-          setTasks(initialTasks);
-        }
-      } catch (error) {
-        console.error("Failed to parse tasks from localStorage", error);
-        setTasks(initialTasks);
-      }
-    } else {
-      setTasks(initialTasks);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem("dayArchitectTasks", JSON.stringify(tasks));
-    }
-  }, [tasks, isClient]);
-
-  const handleAddTask = useCallback((description: string, estimatedTime: number) => {
-    const newTask: Task = {
-      id: uuidv4(),
-      description,
-      estimatedCompletionTime: estimatedTime,
-      priority: 'medium', // Default priority
-      completed: false,
-      createdAt: Date.now(),
+  const mapFirestoreDocToTask = (docSnapshot: any): Task => {
+    const data = docSnapshot.data();
+    return {
+      id: docSnapshot.id,
+      description: data.description,
+      estimatedCompletionTime: data.estimatedCompletionTime,
+      priority: data.priority,
+      completed: data.completed,
+      createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : (data.createdAt || Date.now()),
+      orderIndex: data.orderIndex,
     };
-    setTasks((prevTasks) => [...prevTasks, newTask]);
-    toast({ title: "Task Added", description: `"${description}" has been added to your list.` });
+  };
+
+  const loadTasksFromFirestore = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const q = query(collection(db, TASKS_COLLECTION), orderBy("orderIndex", "asc"));
+      const querySnapshot = await getDocs(q);
+      let fetchedTasks: Task[] = [];
+      querySnapshot.forEach((doc) => {
+        fetchedTasks.push(mapFirestoreDocToTask(doc));
+      });
+
+      if (fetchedTasks.length === 0 && initialTasksSeed.length > 0) {
+        // Seed initial tasks if Firestore is empty
+        const batch = writeBatch(db);
+        const seededTasks: Task[] = [];
+        initialTasksSeed.forEach((taskSeed, index) => {
+          const newDocRef = doc(collection(db, TASKS_COLLECTION)); // Auto-generate ID
+          batch.set(newDocRef, {
+            ...taskSeed,
+            createdAt: serverTimestamp(),
+            orderIndex: index, // Ensure orderIndex is set
+          });
+          // For local state, we'll approximate createdAt and use generated ID later
+          seededTasks.push({ 
+            id: newDocRef.id, // Store the generated ID for local state
+            ...taskSeed, 
+            createdAt: Date.now(), // Placeholder for local state
+            orderIndex: index 
+          });
+        });
+        await batch.commit();
+        // Re-fetch to get actual IDs and server timestamps
+        const seededQuerySnapshot = await getDocs(q);
+        fetchedTasks = [];
+        seededQuerySnapshot.forEach((doc) => {
+          fetchedTasks.push(mapFirestoreDocToTask(doc));
+        });
+        toast({ title: "Welcome!", description: "Sample tasks loaded." });
+      }
+      setTasks(fetchedTasks);
+    } catch (error) {
+      console.error("Error loading tasks from Firestore:", error);
+      toast({ title: "Error", description: "Could not load tasks.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
 
-  const handleToggleComplete = useCallback((id: string) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
-    );
-  }, []);
+  useEffect(() => {
+    setIsClient(true);
+    if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== 'your_api_key_here') {
+        loadTasksFromFirestore();
+    } else if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'your_api_key_here') {
+        console.warn("Firebase API key is not configured. Please update .env file.");
+        toast({ title: "Firebase Not Configured", description: "Please set up your Firebase API key in .env to connect to the database.", variant: "destructive", duration: 10000});
+        setIsLoading(false);
+         // Fallback to local initial tasks if Firebase is not configured
+        const localInitialTasks = initialTasksSeed.map((t, i) => ({
+          ...t,
+          id: uuidv4(),
+          createdAt: Date.now() - (initialTasksSeed.length - 1 - i) * 100000,
+          orderIndex: i
+        }));
+        setTasks(localInitialTasks);
+    }
+  }, [loadTasksFromFirestore]);
 
-  const handleDeleteTask = useCallback((id: string) => {
-    const taskToDelete = tasks.find(t => t.id === id);
-    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
-    if (taskToDelete) {
-      toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
+
+  const saveTasksToFirestore = useCallback(async (tasksToSave: Task[]) => {
+    setIsLoading(true);
+    try {
+      const batch = writeBatch(db);
+      tasksToSave.forEach((task, index) => {
+        const taskRef = doc(db, TASKS_COLLECTION, task.id);
+        // Ensure createdAt is a Timestamp or serverTimestamp for writing
+        let createdAtValue = task.createdAt;
+        if (typeof task.createdAt === 'number') { // if it's a millis number from local state
+          createdAtValue = Timestamp.fromMillis(task.createdAt);
+        } else if (!(task.createdAt instanceof Timestamp) && typeof task.createdAt !== 'function') {
+          // if it's not a Timestamp and not serverTimestamp(), assume it's a Date or needs to be set
+          createdAtValue = serverTimestamp(); 
+        }
+
+        batch.set(taskRef, { 
+            description: task.description,
+            estimatedCompletionTime: task.estimatedCompletionTime,
+            priority: task.priority,
+            completed: task.completed,
+            createdAt: createdAtValue, // Use potentially converted or serverTimestamp
+            orderIndex: index // Crucial: re-assign orderIndex based on current array order
+        }, { merge: true }); // Use merge to avoid overwriting fields not present if task id already exists
+      });
+      await batch.commit();
+      // No need to re-fetch, local state is the source of truth for this save
+      setTasks(tasksToSave.map((task, index) => ({...task, orderIndex: index}))); // Ensure local state reflects saved order
+      toast({ title: "Tasks Saved", description: "Your task order has been saved." });
+    } catch (error) {
+      console.error("Error saving tasks to Firestore:", error);
+      toast({ title: "Save Error", description: "Could not save task order.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+
+  const handleAddTask = useCallback(async (description: string, estimatedTime: number) => {
+    setIsLoading(true);
+    const newTaskData = {
+      description,
+      estimatedCompletionTime: estimatedTime,
+      priority: 'medium' as TaskPriority,
+      completed: false,
+      createdAt: serverTimestamp(),
+      orderIndex: tasks.length, // New task goes to the end
+    };
+    try {
+      await addDoc(collection(db, TASKS_COLLECTION), newTaskData);
+      toast({ title: "Task Added", description: `"${description}" has been added.` });
+      await loadTasksFromFirestore(); // Re-fetch to get new ID and resolved timestamp
+    } catch (error) {
+      console.error("Error adding task to Firestore:", error);
+      toast({ title: "Add Error", description: "Could not add task.", variant: "destructive" });
+      setIsLoading(false);
+    }
+  }, [tasks.length, toast, loadTasksFromFirestore]);
+
+  const handleToggleComplete = useCallback(async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    const newCompletedStatus = !task.completed;
+    try {
+      const taskRef = doc(db, TASKS_COLLECTION, id);
+      await updateDoc(taskRef, { completed: newCompletedStatus });
+      setTasks((prevTasks) =>
+        prevTasks.map((t) => (t.id === id ? { ...t, completed: newCompletedStatus } : t))
+      );
+      toast({ title: "Task Updated" });
+    } catch (error) {
+      console.error("Error updating task completion:", error);
+      toast({ title: "Update Error", description: "Could not update task.", variant: "destructive" });
     }
   }, [tasks, toast]);
 
-  const handlePriorityChange = useCallback((id: string, priority: TaskPriority) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === id ? { ...task, priority } : task
-      )
-    );
-  }, []);
+  const handleDeleteTask = useCallback(async (id: string) => {
+    const taskToDelete = tasks.find(t => t.id === id);
+    if (!taskToDelete) return;
 
-  const handleSetTasks = useCallback((newTasks: Task[]) => {
-    setTasks(newTasks);
-  }, []);
+    setIsLoading(true);
+    try {
+      await deleteDoc(doc(db, TASKS_COLLECTION, id));
+      const remainingTasks = tasks.filter((task) => task.id !== id);
+      const reorderedTasks = remainingTasks.map((task, index) => ({ ...task, orderIndex: index }));
+      
+      // Batch update orderIndex for remaining tasks
+      if (reorderedTasks.length > 0) {
+        const batch = writeBatch(db);
+        reorderedTasks.forEach(task => {
+          const taskRef = doc(db, TASKS_COLLECTION, task.id);
+          batch.update(taskRef, { orderIndex: task.orderIndex });
+        });
+        await batch.commit();
+      }
+      
+      setTasks(reorderedTasks); // Update local state
+      toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      toast({ title: "Delete Error", description: "Could not delete task.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tasks, toast]);
+
+  const handlePriorityChange = useCallback(async (id: string, priority: TaskPriority) => {
+    try {
+      const taskRef = doc(db, TASKS_COLLECTION, id);
+      await updateDoc(taskRef, { priority });
+      setTasks((prevTasks) =>
+        prevTasks.map((task) => (task.id === id ? { ...task, priority } : task))
+      );
+      toast({ title: "Priority Updated" });
+    } catch (error) {
+      console.error("Error updating task priority:", error);
+      toast({ title: "Update Error", description: "Could not update priority.", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const handleSetTasks = useCallback(async (newTasks: Task[]) => {
+    // This is called by TaskList on drag-and-drop
+    const tasksToSave = newTasks.map((task, index) => ({
+      ...task,
+      orderIndex: index, // Ensure orderIndex is updated based on new array position
+    }));
+    setTasks(tasksToSave); // Optimistically update local state
+    await saveTasksToFirestore(tasksToSave); // Persist the new order
+  }, [saveTasksToFirestore]);
 
   const handleSmartSchedule = async () => {
     if (tasks.length === 0) {
@@ -102,7 +258,7 @@ export default function HomePage() {
     setIsScheduling(true);
     try {
       const inputForAI: TaskListInput = {
-        tasks: tasks.map(task => ({
+        tasks: tasks.map(task => ({ // Send current tasks to AI
           id: task.id,
           description: task.description,
           estimatedCompletionTime: task.estimatedCompletionTime,
@@ -111,16 +267,20 @@ export default function HomePage() {
       };
       const result: TaskListOutput = await suggestOptimalTaskOrder(inputForAI);
       
-      const newOrderedTasks = result.orderedTasks.map(aiTask => {
+      // Map AI result back to full Task objects, preserving completed status and createdAt, assigning new orderIndex
+      const newOrderedTasksFromAI = result.orderedTasks.map((aiTask, index) => {
         const originalTask = tasks.find(t => t.id === aiTask.id);
         return {
-          ...aiTask,
+          ...aiTask, // Properties from AI (id, description, estimatedCompletionTime, priority)
           completed: originalTask?.completed || false,
-          createdAt: originalTask?.createdAt || Date.now(),
+          createdAt: originalTask?.createdAt || serverTimestamp(), // Preserve original or set new
+          orderIndex: index, // New orderIndex from AI's ordering
         };
       });
 
-      setTasks(newOrderedTasks);
+      setTasks(newOrderedTasksFromAI); // Update local state
+      await saveTasksToFirestore(newOrderedTasksFromAI); // Save this new order to Firestore
+      
       toast({
         title: "Schedule Optimized!",
         description: result.reasoning || "Tasks have been reordered for optimal flow.",
@@ -138,10 +298,10 @@ export default function HomePage() {
     }
   };
   
-  if (!isClient) {
+  if (!isClient || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-foreground">Loading Day Architect...</p>
+        <p className="text-foreground">{isLoading ? "Loading tasks..." : "Initializing Day Architect..."}</p>
       </div>
     );
   }
@@ -159,7 +319,7 @@ export default function HomePage() {
           <div className="sm:col-span-2">
             <TaskList
               tasks={tasks}
-              setTasks={handleSetTasks}
+              setTasks={handleSetTasks} // For drag-and-drop reordering
               onToggleComplete={handleToggleComplete}
               onDelete={handleDeleteTask}
               onPriorityChange={handlePriorityChange}
