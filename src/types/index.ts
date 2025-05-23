@@ -8,6 +8,7 @@ export interface Task {
   completed: boolean;
   createdAt: number; // Unix timestamp in milliseconds (converted from ISO string)
   orderIndex: number;
+  dueDate?: Date | null; // Optional due date
 }
 
 export type TaskPriority = Task['priority'];

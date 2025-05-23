@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { Task, TaskPriority } from "@/types";
 import { suggestOptimalTaskOrder, type TaskListInput, type TaskListOutput } from "@/ai/flows/suggest-optimal-task-order";
 import AppHeader from "@/components/AppHeader";
@@ -15,18 +15,39 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabase';
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 
 // Sample initial tasks if Supabase is empty or not configured
 const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId'>[] = [
-  { description: "Morning workout session", estimatedCompletionTime: 45, priority: 'medium', completed: true, orderIndex: 0 },
-  { description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high', completed: false, orderIndex: 1 },
-  { description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high', completed: false, orderIndex: 2 },
-  { description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low', completed: false, orderIndex: 3 },
+  { description: "Morning workout session", estimatedCompletionTime: 45, priority: 'medium', completed: true, orderIndex: 0, dueDate: null },
+  { description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high', completed: false, orderIndex: 1, dueDate: new Date() },
+  { description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high', completed: false, orderIndex: 2, dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) },
+  { description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low', completed: false, orderIndex: 3, dueDate: null },
 ];
 
 const TASKS_TABLE = "tasks";
 
 const mapSupabaseRowToTask = (row: any): Task => {
+  let parsedDueDate: Date | null = null;
+  if (row.dueDate && typeof row.dueDate === 'string') {
+      // Supabase DATE 'YYYY-MM-DD' is interpreted as UTC midnight by new Date().
+      // To parse as local midnight, add 'T00:00:00' or use a robust parsing library.
+      // For react-day-picker, ensuring it's a valid Date object is key.
+      const parts = row.dueDate.split('-');
+      if (parts.length === 3) {
+          const year = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+          const day = parseInt(parts[2], 10);
+          if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+              parsedDueDate = new Date(year, month, day);
+          } else {
+              console.warn(`Invalid date string from Supabase for dueDate: ${row.dueDate}`);
+          }
+      } else {
+           console.warn(`Unexpected dueDate string format from Supabase: ${row.dueDate}`);
+      }
+  }
+
   return {
     id: row.id,
     userId: row.user_id,
@@ -36,6 +57,7 @@ const mapSupabaseRowToTask = (row: any): Task => {
     completed: row.completed,
     createdAt: row.createdAt ? Date.parse(row.createdAt) : Date.now(),
     orderIndex: row.orderIndex,
+    dueDate: parsedDueDate,
   };
 };
 
@@ -85,6 +107,7 @@ export default function HomePage() {
           priority: taskSeed.priority,
           completed: taskSeed.completed,
           orderIndex: index,
+          dueDate: taskSeed.dueDate ? format(taskSeed.dueDate, "yyyy-MM-dd") : null,
         }));
 
         const { error: insertError } = await supabase.from(TASKS_TABLE).insert(tasksToSeed);
@@ -118,11 +141,11 @@ export default function HomePage() {
       } else {
           console.warn("Supabase URL or Anon Key is not configured correctly or is a placeholder.");
           toast({ title: "Supabase Not Configured", description: "Please check your Supabase credentials in .env and restart the server.", variant: "destructive", duration: 10000});
-          setIsLoadingData(false); 
+          setIsLoadingData(false);
       }
     } else if (!authLoading && !session && isClient) {
-        setIsLoadingData(false); 
-        setTasks([]); 
+        setIsLoadingData(false);
+        setTasks([]);
     }
   }, [session, user, authLoading, loadTasksFromSupabase, toast, isClient]);
 
@@ -144,17 +167,17 @@ export default function HomePage() {
     } catch (error) {
       console.error("Error saving task order to Supabase:", error);
       toast({ title: "Save Order Error", description: "Could not save task order.", variant: "destructive" });
-      throw error; 
+      // No automatic revert or refetch here, rely on subsequent actions or manual refresh
     }
   }, [toast, user]);
 
 
-  const handleAddTask = useCallback(async (description: string, estimatedTime: number): Promise<void> => {
+  const handleAddTask = useCallback(async (description: string, estimatedTime: number, dueDate?: Date | null): Promise<void> => {
     if (!user) {
       toast({ title: "Not Authenticated", description: "Please log in to add tasks.", variant: "destructive" });
       return Promise.reject(new Error("User not authenticated"));
     }
-    
+
     const newTaskData = {
       user_id: user.id,
       description,
@@ -162,6 +185,7 @@ export default function HomePage() {
       priority: 'medium' as TaskPriority,
       completed: false,
       orderIndex: tasks.length,
+      dueDate: dueDate ? format(dueDate, "yyyy-MM-dd") : null,
     };
 
     try {
@@ -177,6 +201,7 @@ export default function HomePage() {
         setTasks((prevTasks) => [...prevTasks, mapSupabaseRowToTask(insertedTask)]);
         toast({ title: "Task Added", description: `"${description}" has been added.` });
       } else {
+        // Fallback if single() doesn't return data as expected, refetch list
         await loadTasksFromSupabase();
         toast({ title: "Task Added", description: `"${description}" has been added. List refreshed.` });
       }
@@ -187,18 +212,16 @@ export default function HomePage() {
         errorMessage = error.message;
       }
       toast({ title: "Add Task Error", description: errorMessage, variant: "destructive" });
-      return Promise.reject(error); 
+      return Promise.reject(error);
     }
   }, [tasks.length, toast, loadTasksFromSupabase, user]);
 
-  const handleFormSubmitAddTask = async (description: string, estimatedTime: number) => {
+  const handleFormSubmitAddTask = async (description: string, estimatedTime: number, dueDate?: Date | null) => {
     try {
-      await handleAddTask(description, estimatedTime);
+      await handleAddTask(description, estimatedTime, dueDate);
       setIsAddTaskDialogOpen(false); // Close dialog on success
     } catch (error) {
       // Error is already toasted by handleAddTask
-      // Optionally, keep the dialog open on error, or close it
-      // setIsAddTaskDialogOpen(false); 
     }
   };
 
@@ -207,7 +230,7 @@ export default function HomePage() {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     const newCompletedStatus = !task.completed;
-    
+
     setTasks((prevTasks) =>
       prevTasks.map((t) => (t.id === id ? { ...t, completed: newCompletedStatus } : t))
     );
@@ -219,11 +242,12 @@ export default function HomePage() {
         .eq('id', id)
         .eq('user_id', user.id);
       if (error) {
+        // Revert optimistic update
         setTasks((prevTasks) =>
           prevTasks.map((t) => (t.id === id ? { ...t, completed: task.completed } : t))
         );
         toast({ title: "Update Error", description: "Could not update task. Reverting.", variant: "destructive" });
-        await loadTasksFromSupabase(); 
+        await loadTasksFromSupabase(); // Refetch to be safe
         throw error;
       }
       toast({ title: "Task Updated" });
@@ -248,27 +272,27 @@ export default function HomePage() {
         .eq('user_id', user.id);
       if (deleteError) throw deleteError;
 
-      const remainingTasks = originalTasks.filter((task) => task.id !== id);
-      const taskOrderUpdates = remainingTasks.map((task, index) => ({ id: task.id, orderIndex: index }));
-
-      if (taskOrderUpdates.length > 0) {
-        await saveTaskOrderToSupabase(taskOrderUpdates);
+      // After deletion, update orderIndex of remaining tasks
+      const remainingTasks = originalTasks.filter(t => t.id !== id).map((t, index) => ({ ...t, orderIndex: index }));
+      if (remainingTasks.length > 0 && remainingTasks.some((t, idx) => originalTasks.find(ot => ot.id === t.id)?.orderIndex !== idx)) {
+          const taskOrderUpdates = remainingTasks.map(task => ({ id: task.id, orderIndex: task.orderIndex }));
+          await saveTaskOrderToSupabase(taskOrderUpdates);
       }
       
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
-      await loadTasksFromSupabase();
+      await loadTasksFromSupabase(); // Refresh list after delete and reorder
     } catch (error) {
       console.error("Error deleting task from Supabase:", error);
       toast({ title: "Delete Error", description: "Could not delete task. Reverting.", variant: "destructive" });
-      setTasks(originalTasks); 
-      await loadTasksFromSupabase(); 
+      setTasks(originalTasks); // Revert optimistic update
+      await loadTasksFromSupabase(); // Refetch to be safe
     }
   }, [tasks, toast, user, saveTaskOrderToSupabase, loadTasksFromSupabase]);
 
   const handlePriorityChange = useCallback(async (id: string, priority: TaskPriority) => {
     if (!user) return;
     const oldTasks = [...tasks];
-    
+
     setTasks((prevTasks) =>
       prevTasks.map((task) => (task.id === id ? { ...task, priority } : task))
     );
@@ -280,35 +304,36 @@ export default function HomePage() {
         .eq('id', id)
         .eq('user_id', user.id);
       if (error) {
-        setTasks(oldTasks); 
+        setTasks(oldTasks); // Revert optimistic update
         toast({ title: "Update Error", description: "Could not update priority.", variant: "destructive" });
-        await loadTasksFromSupabase(); 
+        await loadTasksFromSupabase(); // Refetch to be safe
         throw error;
       }
       toast({ title: "Priority Updated" });
     } catch (error) {
       console.error("Error updating task priority:", error);
     }
-  }, [tasks, toast, user, loadTasksFromSupabase]); 
+  }, [tasks, toast, user, loadTasksFromSupabase]);
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
-    
+
     const tasksToSaveForOrder = newTasks.map((task, index) => ({
-      id: task.id, 
+      id: task.id,
       orderIndex: index,
     }));
-    
+
     const originalTasks = [...tasks];
-    setTasks(newTasks); 
-    
+    setTasks(newTasks); // Optimistic update for UI responsiveness
+
     try {
       await saveTaskOrderToSupabase(tasksToSaveForOrder);
-      // Potentially call loadTasksFromSupabase() here if strict consistency is needed after drag
+      // Optionally call loadTasksFromSupabase() here if strict consistency is needed after drag
+      // For now, rely on optimistic update and eventual consistency
     } catch (error) {
         toast({ title: "Reorder Error", description: "Could not save new task order. Reverting.", variant: "destructive" });
-        setTasks(originalTasks); 
-        await loadTasksFromSupabase();
+        setTasks(originalTasks); // Revert optimistic update
+        await loadTasksFromSupabase(); // Refetch to ensure consistency
     }
   }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase, toast, tasks]);
 
@@ -329,6 +354,7 @@ export default function HomePage() {
           description: task.description,
           estimatedCompletionTime: task.estimatedCompletionTime,
           priority: task.priority,
+          dueDate: task.dueDate || undefined, // Pass undefined if null/undefined
         })),
       };
       const result: TaskListOutput = await suggestOptimalTaskOrder(inputForAI);
@@ -339,7 +365,7 @@ export default function HomePage() {
       }));
 
       await saveTaskOrderToSupabase(taskOrderUpdates);
-      await loadTasksFromSupabase(); 
+      await loadTasksFromSupabase(); // Refresh list from DB
 
       toast({
         title: "Schedule Optimized!",
@@ -353,7 +379,7 @@ export default function HomePage() {
         description: "Could not optimize the schedule. Please try again.",
         variant: "destructive",
       });
-       await loadTasksFromSupabase(); 
+       await loadTasksFromSupabase(); // Ensure list is consistent if error occurs
     } finally {
       setIsScheduling(false);
     }
@@ -381,7 +407,7 @@ export default function HomePage() {
         <AppHeader
           onSmartSchedule={handleSmartSchedule}
           isScheduling={isScheduling}
-          onTriggerAddTask={() => setIsAddTaskDialogOpen(true)}
+          onTriggerAddTaskDialog={() => setIsAddTaskDialogOpen(true)}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-8">
@@ -429,6 +455,3 @@ export default function HomePage() {
     </div>
   );
 }
-    
-
-    

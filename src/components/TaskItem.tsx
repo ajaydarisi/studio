@@ -8,8 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, GripVertical, Clock3 } from "lucide-react";
+import { Trash2, GripVertical, Clock3, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 interface TaskItemProps {
   task: Task;
@@ -45,7 +46,7 @@ const TaskItem: FC<TaskItemProps> = ({
       case 'high': return 'border-l-[hsl(var(--border-priority-high))]';
       case 'medium': return 'border-l-[hsl(var(--border-priority-medium))]';
       case 'low': return 'border-l-[hsl(var(--border-priority-low))]';
-      default: return 'border-l-border'; // Uses existing theme variable for border
+      default: return 'border-l-border';
     }
   };
 
@@ -59,8 +60,8 @@ const TaskItem: FC<TaskItemProps> = ({
         "mb-3 p-0 transition-shadow duration-150 ease-in-out hover:shadow-md",
         task.completed ? "bg-secondary opacity-70" : "bg-card",
         isDragging ? "opacity-50 ring-2 ring-primary" : "",
-        "border-l-4", // Defines the width of the left border
-        priorityBorderColorClass() // Applies the themed color to the left border
+        "border-l-4",
+        priorityBorderColorClass()
       )}
     >
       <CardContent className="p-4 flex items-start space-x-3">
@@ -86,9 +87,17 @@ const TaskItem: FC<TaskItemProps> = ({
                 >
                     {task.description}
                 </label>
-                <div className="text-xs text-muted-foreground flex items-center mt-1">
-                    <Clock3 className="h-3 w-3 mr-1" />
-                    {task.estimatedCompletionTime} min
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                    <div className="text-xs text-muted-foreground flex items-center mt-1">
+                        <Clock3 className="h-3 w-3 mr-1" />
+                        {task.estimatedCompletionTime} min
+                    </div>
+                    {task.dueDate && (
+                      <div className="text-xs text-muted-foreground flex items-center mt-1 sm:mt-1 sm:ml-3"> {/* Adjusted margin for consistency */}
+                        <CalendarDays className="h-3 w-3 mr-1 text-primary" /> {/* Using primary for due date icon color */}
+                        Due: {format(new Date(task.dueDate), "MMM d, yyyy")}
+                      </div>
+                    )}
                 </div>
             </div>
 
