@@ -3,7 +3,7 @@
 
 import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
-import type { AuthError, Session, User } from '@supabase/supabase-js';
+import type { AuthError, Session, User, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -12,8 +12,8 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signUpWithEmail: (credentials: SignUpWithPasswordCredentials) => Promise<{ error: AuthError | null; data: { user: User | null; session: Session | null; } | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
-  // Add other auth methods like signUp, signInWithOAuth if needed
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,10 +31,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+
+        if (event === 'SIGNED_IN' && session) {
+          router.push('/');
+        } else if (event === 'SIGNED_OUT') {
+          router.push('/login');
+        }
       }
     );
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -44,28 +49,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   const signInWithEmail = async (email: string, password: string) => {
     setIsLoading(true);
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error && data.session) {
-      setSession(data.session);
-      setUser(data.session.user);
-      router.push('/'); // Redirect to home on successful login
-    }
+    // Session and user state update is handled by onAuthStateChange
+    // Redirection is also handled by onAuthStateChange
     setIsLoading(false);
     return { error };
+  };
+
+  const signUpWithEmail = async (credentials: SignUpWithPasswordCredentials) => {
+    setIsLoading(true);
+    const { data, error } = await supabase.auth.signUp(credentials);
+    // User will need to confirm email, session might not be active immediately
+    // onAuthStateChange will handle setting user/session if auto-confirmation is on or after confirmation
+    setIsLoading(false);
+    return { error, data };
   };
 
   const signOut = async () => {
     setIsLoading(true);
     const { error } = await supabase.auth.signOut();
-    setSession(null);
-    setUser(null);
-    if (!error) {
-      router.push('/login'); // Redirect to login on successful logout
-    }
+    // Session and user state update is handled by onAuthStateChange
+    // Redirection is also handled by onAuthStateChange
     setIsLoading(false);
     return { error };
   };
@@ -75,6 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     isLoading,
     signInWithEmail,
+    signUpWithEmail,
     signOut,
   };
 

@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link'; // Import Link
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -50,7 +51,7 @@ export default function LoginPage() {
         title: 'Login Successful',
         description: 'Redirecting...',
       });
-      // Redirect is handled by AuthProvider on successful sign-in
+      // Redirect is handled by AuthProvider on successful sign-in via onAuthStateChange
     }
   };
 
@@ -93,13 +94,12 @@ export default function LoginPage() {
               {isSubmitting || authLoading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
-          {/* Optional: Add links for Sign Up or Forgot Password here */}
-          {/* <div className="mt-4 text-center text-sm">
-            Don't have an account?{' '}
-            <Link href="/signup" className="underline text-primary">
+          <div className="mt-6 text-center text-sm">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="underline text-primary hover:text-primary/80">
               Sign up
             </Link>
-          </div> */}
+          </div>
         </CardContent>
       </Card>
     </div>
