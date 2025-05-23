@@ -7,10 +7,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation'; // useRouter might not be needed if AuthProvider handles redirect
+import { useRouter } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -21,7 +21,7 @@ const signupSchema = z.object({
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match.",
-  path: ['confirmPassword'], // path to field that will display the error
+  path: ['confirmPassword'],
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -31,13 +31,15 @@ export default function SignupPage() {
   const { toast } = useToast();
   const [formError, setFormError] = useState<string | null>(null);
   const [isSignedUp, setIsSignedUp] = useState(false);
+  // const router = useRouter(); // Not strictly needed if AuthProvider handles redirect logic sufficiently
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<SignupFormValues>({
+  const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: ""
+    },
   });
 
   const onSubmit = async (data: SignupFormValues) => {
@@ -53,23 +55,20 @@ export default function SignupPage() {
         variant: 'destructive',
       });
     } else {
-      // Check if Supabase returns a user object but session is null (email confirmation pending)
       if (signupData?.user && !signupData.session) {
         toast({
           title: 'Signup Successful!',
           description: 'Please check your email to confirm your account.',
           duration: 10000,
         });
-        setIsSignedUp(true); // To show a confirmation message instead of the form
+        setIsSignedUp(true);
       } else if (signupData?.user && signupData?.session) {
-        // This case is if auto-confirm is on or if user somehow gets a session immediately
         toast({
           title: 'Signup Successful!',
           description: 'You are now logged in.',
         });
         // AuthProvider should handle redirect to '/'
       } else {
-        // Fallback, should ideally not happen if error is null
          toast({
           title: 'Signup Initiated',
           description: 'Please check your email for a confirmation link.',
@@ -114,45 +113,68 @@ export default function SignupPage() {
           <CardDescription>Sign up to start planning your day.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                {...register('email')}
-                className={errors.email ? 'border-destructive' : ''}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        {...field}
+                        disabled={form.formState.isSubmitting || authLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register('password')}
-                className={errors.password ? 'border-destructive' : ''}
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        disabled={form.formState.isSubmitting || authLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                {...register('confirmPassword')}
-                className={errors.confirmPassword ? 'border-destructive' : ''}
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        disabled={form.formState.isSubmitting || authLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
-            </div>
-            {formError && <p className="text-sm text-destructive text-center">{formError}</p>}
-            <Button type="submit" className="w-full" disabled={isSubmitting || authLoading} size="lg">
-              {isSubmitting || authLoading ? 'Creating Account...' : 'Create Account'}
-            </Button>
-          </form>
+              {formError && <p className="text-sm text-destructive text-center">{formError}</p>}
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || authLoading} size="lg">
+                {form.formState.isSubmitting || authLoading ? 'Creating Account...' : 'Create Account'}
+              </Button>
+            </form>
+          </Form>
           <div className="mt-6 text-center text-sm">
             Already have an account?{' '}
             <Link href="/login" className="underline text-primary hover:text-primary/80">

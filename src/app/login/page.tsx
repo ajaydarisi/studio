@@ -7,13 +7,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -28,12 +28,12 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [formError, setFormError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginFormValues>({
+  const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -66,34 +66,50 @@ export default function LoginPage() {
           <CardDescription>Sign in to manage your tasks.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                {...register('email')}
-                className={errors.email ? 'border-destructive' : ''}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        {...field}
+                        disabled={form.formState.isSubmitting || authLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register('password')}
-                className={errors.password ? 'border-destructive' : ''}
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        disabled={form.formState.isSubmitting || authLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-            </div>
-            {formError && <p className="text-sm text-destructive text-center">{formError}</p>}
-            <Button type="submit" className="w-full" disabled={isSubmitting || authLoading} size="lg">
-              {isSubmitting || authLoading ? 'Signing In...' : 'Sign In'}
-            </Button>
-          </form>
+              {formError && <p className="text-sm text-destructive text-center">{formError}</p>}
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || authLoading} size="lg">
+                {form.formState.isSubmitting || authLoading ? 'Signing In...' : 'Sign In'}
+              </Button>
+            </form>
+          </Form>
           <div className="mt-6 text-center text-sm">
             Don&apos;t have an account?{' '}
             <Link href="/signup" className="underline text-primary hover:text-primary/80">
