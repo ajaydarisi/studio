@@ -44,6 +44,12 @@ body {
 
     --radius: 0.5rem;
 
+    /* Priority border colors */
+    --border-priority-high: 0 80% 60%; /* Vivid Red */
+    --border-priority-medium: 35 90% 60%; /* Warm Yellow/Amber */
+    --border-priority-low: 130 60% 50%; /* Calm Green */
+
+
     /* Sidebar specific colors - can be adjusted if sidebar is heavily themed, otherwise defaults are fine */
     --sidebar-background: 210 25% 98%; /* Slightly off-white, similar to background */
     --sidebar-foreground: 220 18% 27%; /* Dark Gray */
@@ -93,6 +99,11 @@ body {
     --chart-3: 220 45% 55%;
     --chart-4: 190 35% 50%;
     --chart-5: 200 25% 45%;
+
+    /* Dark Priority border colors */
+    --border-priority-high: 0 70% 55%; /* Slightly desaturated red for dark mode */
+    --border-priority-medium: 35 80% 55%; /* Slightly desaturated yellow/amber for dark mode */
+    --border-priority-low: 130 50% 45%; /* Slightly desaturated green for dark mode */
   }
 }
 

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { type FC, type DragEvent } from 'react'; // Added React
+import React, { type FC, type DragEvent } from 'react';
 import type { Task, TaskPriority } from "@/types";
 import { PRIORITIES, PRIORITY_LABELS } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,12 +40,12 @@ const TaskItem: FC<TaskItemProps> = ({
     onPriorityChange(task.id, value as TaskPriority);
   };
 
-  const priorityColorClass = () => {
+  const priorityBorderColorClass = () => {
     switch (task.priority) {
-      case 'high': return 'border-red-500';
-      case 'medium': return 'border-yellow-500';
-      case 'low': return 'border-green-500';
-      default: return 'border-border';
+      case 'high': return 'border-l-[hsl(var(--border-priority-high))]';
+      case 'medium': return 'border-l-[hsl(var(--border-priority-medium))]';
+      case 'low': return 'border-l-[hsl(var(--border-priority-low))]';
+      default: return 'border-l-border'; // Uses existing theme variable for border
     }
   };
 
@@ -59,7 +59,8 @@ const TaskItem: FC<TaskItemProps> = ({
         "mb-3 p-0 transition-shadow duration-150 ease-in-out hover:shadow-md",
         task.completed ? "bg-secondary opacity-70" : "bg-card",
         isDragging ? "opacity-50 ring-2 ring-primary" : "",
-        priorityColorClass() + " border-l-4"
+        "border-l-4", // Defines the width of the left border
+        priorityBorderColorClass() // Applies the themed color to the left border
       )}
     >
       <CardContent className="p-4 flex items-start space-x-3">
@@ -129,5 +130,3 @@ const TaskItem: FC<TaskItemProps> = ({
 };
 
 export default React.memo(TaskItem);
-
-    
