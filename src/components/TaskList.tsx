@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { type FC, type DragEvent, useState } from 'react'; // Added React
-import type { Task, TaskPriority } from "@/types";
+import React, { type FC, type DragEvent, useState } from 'react';
+import type { Task } from "@/types"; // TaskPriority removed as it's not used for UI selection here
 import TaskItem from "./TaskItem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckSquare } from "lucide-react";
@@ -12,7 +12,7 @@ interface TaskListProps {
   setTasks: (tasks: Task[]) => void;
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
-  onPriorityChange: (id: string, priority: TaskPriority) => void;
+  // onPriorityChange prop removed
 }
 
 const TaskList: FC<TaskListProps> = ({
@@ -20,7 +20,7 @@ const TaskList: FC<TaskListProps> = ({
   setTasks,
   onToggleComplete,
   onDelete,
-  onPriorityChange,
+  // onPriorityChange removed
 }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
@@ -55,7 +55,7 @@ const TaskList: FC<TaskListProps> = ({
     const [draggedItem] = newTasks.splice(draggedItemIndex, 1);
     newTasks.splice(targetItemIndex, 0, draggedItem);
     
-    setTasks(newTasks); // This calls handleSetTasks from page.tsx, which handles DB update
+    setTasks(newTasks);
     setDraggedTaskId(null);
     setDragOverTaskId(null);
   };
@@ -103,7 +103,7 @@ const TaskList: FC<TaskListProps> = ({
               task={task}
               onToggleComplete={onToggleComplete}
               onDelete={onDelete}
-              onPriorityChange={onPriorityChange}
+              // onPriorityChange prop removed
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
@@ -117,5 +117,3 @@ const TaskList: FC<TaskListProps> = ({
 };
 
 export default React.memo(TaskList);
-
-    

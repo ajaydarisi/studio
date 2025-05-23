@@ -4,19 +4,13 @@ export interface Task {
   userId: string; // Foreign key to auth.users.id
   description: string;
   estimatedCompletionTime: number; // in minutes
-  priority: 'high' | 'medium' | 'low';
+  priority: 'high' | 'medium' | 'low'; // Still used internally by AI and cron
   completed: boolean;
   createdAt: number; // Unix timestamp in milliseconds (converted from ISO string)
   orderIndex: number;
-  dueDate?: Date | null; // Optional due date
+  dueDate: Date; // Due date is now mandatory
 }
 
-export type TaskPriority = Task['priority'];
+export type TaskPriority = Task['priority']; // Still needed for AI and potential backend logic
 
-export const PRIORITIES: ReadonlyArray<TaskPriority> = ['high', 'medium', 'low'];
-
-export const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-};
+// PRIORITIES array and PRIORITY_LABELS object removed as they were for the UI dropdown.
