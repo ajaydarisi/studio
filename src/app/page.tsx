@@ -47,7 +47,7 @@ export default function HomePage() {
   const mapSupabaseRowToTask = (row: any): Task => {
     return {
       id: row.id,
-      userId: row.user_id, // Assuming you add a user_id column
+      userId: row.user_id, 
       description: row.description,
       estimatedCompletionTime: row.estimatedCompletionTime,
       priority: row.priority,
@@ -75,7 +75,7 @@ export default function HomePage() {
 
       let fetchedTasks: Task[] = data ? data.map(mapSupabaseRowToTask) : [];
 
-      if (fetchedTasks.length === 0 && initialTasksSeed.length > 0) {
+      if (fetchedTasks.length === 0 && initialTasksSeed.length > 0 && user?.id) { // Ensure user.id for seeding
         const tasksToSeed = initialTasksSeed.map((taskSeed, index) => ({
           user_id: user.id, // Associate with current user
           description: taskSeed.description,
@@ -101,24 +101,13 @@ export default function HomePage() {
     } catch (error) {
       console.error("Error loading tasks from Supabase:", error);
       toast({ title: "Error", description: "Could not load tasks.", variant: "destructive" });
-      // Fallback to local if Supabase config is bad, only if no user (which shouldn't happen here)
-      if (!user && (process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url_here' || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'your_supabase_anon_key_here')) {
-        const localInitialTasks = initialTasksSeed.map((t, i) => ({
-          ...t,
-          id: uuidv4(),
-          userId: '', // No user in this fallback
-          createdAt: Date.now() - (initialTasksSeed.length - 1 - i) * 100000,
-          orderIndex: i
-        }));
-        setTasks(localInitialTasks);
-      }
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast, user]); // Add user to dependencies
+  }, [toast, user]); 
 
   useEffect(() => {
-    if (session && user && isClient) { // Only load tasks if authenticated and client-side
+    if (session && user && isClient) { 
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -128,11 +117,10 @@ export default function HomePage() {
           console.warn("Supabase URL or Anon Key is not configured correctly.");
           toast({ title: "Supabase Not Configured", description: "Please check your Supabase credentials in .env.", variant: "destructive", duration: 10000});
           setIsLoadingData(false);
-          // Potentially show a message or limited functionality if Supabase isn't configured but user is somehow 'logged in'
       }
     } else if (!authLoading && !session && isClient) {
-        setIsLoadingData(false); // Not loading data if not authenticated
-        setTasks([]); // Clear tasks
+        setIsLoadingData(false); 
+        setTasks([]); 
     }
   }, [session, user, authLoading, loadTasksFromSupabase, toast, isClient]);
 
@@ -146,14 +134,14 @@ export default function HomePage() {
           .from(TASKS_TABLE)
           .update({ orderIndex: task.orderIndex })
           .eq('id', task.id)
-          .eq('user_id', user.id) // Ensure user owns the task
+          .eq('user_id', user.id) 
       );
       const results = await Promise.all(updates);
       results.forEach(result => {
         if (result.error) throw result.error;
       });
-      setTasks(tasksToSave);
-      toast({ title: "Tasks Order Saved", description: "Your task order has been saved." });
+      setTasks(tasksToSave); // Optimistically update local state or confirm based on results
+      // toast({ title: "Tasks Order Saved", description: "Your task order has been saved." }); // Consider if this toast is too frequent
     } catch (error) {
       console.error("Error saving task order to Supabase:", error);
       toast({ title: "Save Order Error", description: "Could not save task order.", variant: "destructive" });
@@ -170,7 +158,7 @@ export default function HomePage() {
     }
     setIsLoadingData(true);
     const newTaskData = {
-      user_id: user.id, // Associate with current user
+      user_id: user.id, 
       description,
       estimatedCompletionTime: estimatedTime,
       priority: 'medium' as TaskPriority,
@@ -183,11 +171,18 @@ export default function HomePage() {
       
       toast({ title: "Task Added", description: `"${description}" has been added.` });
       await loadTasksFromSupabase(); 
-    } catch (error) {
+    } catch (error: any) { // Type assertion to access potential Supabase error properties
       console.error("Error adding task to Supabase:", error);
-      toast({ title: "Add Error", description: "Could not add task.", variant: "destructive" });
+      let errorMessage = "Could not add task.";
+      if (error && error.message) {
+        errorMessage = error.message;
+      }
+      // You can also add more details from the error object if available and helpful
+      // if (error && error.details) errorMessage += ` Details: ${error.details}`;
+      // if (error && error.hint) errorMessage += ` Hint: ${error.hint}`;
+      toast({ title: "Add Task Error", description: errorMessage, variant: "destructive" });
     } finally {
-      setIsLoadingData(false); // Ensure this is called
+      setIsLoadingData(false);
     }
   }, [tasks.length, toast, loadTasksFromSupabase, user]);
 
@@ -263,17 +258,17 @@ export default function HomePage() {
         .update({ priority: priority })
         .eq('id', id)
         .eq('user_id', user.id);
-      if (error) throw error;
+      if (error) {throw error;} // Corrected missing brace
 
       setTasks((prevTasks) =>
         prevTasks.map((task) => (task.id === id ? { ...task, priority } : task))
       );
       toast({ title: "Priority Updated" });
-    } catch (error) {
+    } catch (error) {     
       console.error("Error updating task priority:", error);
       toast({ title: "Update Error", description: "Could not update priority.", variant: "destructive" });
     }
-  }, [toast, user, tasks]); // Added tasks to dependency array as per original
+  }, [toast, user, tasks]); 
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
@@ -311,7 +306,7 @@ export default function HomePage() {
         return {
           ...originalTask!,
           ...aiTask,
-          userId: user.id, // Ensure userId is present
+          userId: user.id, 
           orderIndex: index,
           createdAt: originalTask?.createdAt || Date.now(),
         };
@@ -336,7 +331,7 @@ export default function HomePage() {
     }
   };
 
-  if (authLoading || (!session && isClient)) { // Show loading while auth is resolving or redirecting
+  if (authLoading || (!session && isClient)) { 
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-foreground">{authLoading ? "Authenticating..." : "Redirecting..."}</p>
@@ -344,8 +339,7 @@ export default function HomePage() {
     );
   }
   
-  // If authenticated, but data is still loading for tasks
-  if (isLoadingData && session) {
+  if (isLoadingData && session && user) { // Ensure user is also checked here
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-foreground">Loading tasks...</p>
