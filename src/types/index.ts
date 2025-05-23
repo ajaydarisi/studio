@@ -1,6 +1,7 @@
 
 export interface Task {
   id: string; // UUID from Supabase
+  userId: string; // Foreign key to auth.users.id
   description: string;
   estimatedCompletionTime: number; // in minutes
   priority: 'high' | 'medium' | 'low';
