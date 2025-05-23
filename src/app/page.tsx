@@ -155,8 +155,8 @@ export default function HomePage() {
           onAddTask={handleAddTask} 
         />
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
-          <div className="md:col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-8">
+          <div className="sm:col-span-2">
             <TaskList
               tasks={tasks}
               setTasks={handleSetTasks}
@@ -165,7 +165,7 @@ export default function HomePage() {
               onPriorityChange={handlePriorityChange}
             />
           </div>
-          <div className="md:col-span-1">
+          <div className="sm:col-span-1">
             <ProgressIndicator tasks={tasks} />
           </div>
         </div>
