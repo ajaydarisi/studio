@@ -21,7 +21,7 @@ interface TaskItemProps {
   isDragging: boolean;
 }
 
-const TaskItem: FC<TaskItemProps> = ({
+const TaskItem: FC<TaskItemProps> = React.memo(({
   task,
   onToggleComplete,
   onDelete,
@@ -31,21 +31,16 @@ const TaskItem: FC<TaskItemProps> = ({
   onDrop,
   isDragging
 }) => {
-  const handleCheckboxChange = () => {
+  const handleCheckboxChange = React.useCallback(() => {
     onToggleComplete(task.id);
-  };
+  }, [onToggleComplete, task.id]);
 
-  const priorityBorderColorClass = () => {
+  const priorityBorderColorClass = React.useCallback(() => {
     const today = startOfToday();
-    // Ensure task.dueDate is treated as a Date object, assuming mapSupabaseRowToTask handles this.
-    // If task.dueDate can be a string, it needs to be new Date(task.dueDate)
     const dueDate = task.dueDate instanceof Date ? startOfDay(task.dueDate) : startOfDay(new Date(task.dueDate));
 
-
-    if (!dueDate) return 'border-l-border'; // Default if no due date (should not happen if required)
-
-    if (isPast(dueDate) && !isToday(dueDate)) return 'border-l-[hsl(var(--border-priority-high))]';
-    if (isToday(dueDate)) return 'border-l-[hsl(var(--border-priority-high))]';
+    if (isPast(dueDate) && !isSameDay(dueDate, today)) return 'border-l-[hsl(var(--border-priority-high))]';
+    if (isSameDay(dueDate, today)) return 'border-l-[hsl(var(--border-priority-high))]';
 
     const tomorrow = addDays(today, 1);
     const dayAfterTomorrow = addDays(today, 2);
@@ -54,7 +49,7 @@ const TaskItem: FC<TaskItemProps> = ({
       return 'border-l-[hsl(var(--border-priority-medium))]';
     }
     return 'border-l-[hsl(var(--border-priority-low))]';
-  };
+  }, [task.dueDate]);
 
   return (
     <Card
@@ -66,12 +61,15 @@ const TaskItem: FC<TaskItemProps> = ({
         "mb-3 p-0 transition-shadow duration-150 ease-in-out hover:shadow-md",
         task.completed ? "bg-secondary opacity-70" : "bg-card",
         isDragging ? "opacity-50 ring-2 ring-primary" : "",
-        "border-l-4", 
+        "border-l-4",
         priorityBorderColorClass()
       )}
     >
       <CardContent className="p-4 flex items-start space-x-3">
-        <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-1" aria-label="Drag to reorder task"/>
+        <GripVertical
+          className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-1"
+          aria-label="Drag to reorder task"
+        />
         <Checkbox
           id={`task-${task.id}`}
           checked={task.completed}
@@ -79,9 +77,9 @@ const TaskItem: FC<TaskItemProps> = ({
           aria-labelledby={`desc-${task.id}`}
           className="shrink-0 mt-[5px]"
         />
-        
+
         <div className="flex-grow flex flex-col sm:flex-row sm:items-center sm:justify-between min-w-0">
-            
+
             <div className="flex-grow min-w-0 sm:mr-4">
                 <label
                     htmlFor={`task-${task.id}`}
@@ -107,7 +105,7 @@ const TaskItem: FC<TaskItemProps> = ({
                 </div>
             </div>
 
-            {/* Action buttons container - now always flex-row */}
+            {/* Action buttons container - always flex-row */}
             <div className="mt-3 sm:mt-0 flex flex-row items-center space-x-2 shrink-0">
                 <Button
                     variant="ghost"
@@ -122,14 +120,14 @@ const TaskItem: FC<TaskItemProps> = ({
                     <Pencil className="h-4 w-4 shrink-0" />
                     <span className="sr-only">Edit Task</span> {/* Visually hidden, for accessibility */}
                 </Button>
-                
+
                 <Button
                     variant="ghost"
                     onClick={() => onDelete(task.id)}
                     aria-label={`Delete task: ${task.description}`}
                     className={cn(
                         "text-muted-foreground hover:text-destructive",
-                        "flex items-center", 
+                        "flex items-center",
                         "w-9 h-9 p-0 justify-center"  // Icon button style for all sizes
                     )}
                 >
@@ -141,6 +139,6 @@ const TaskItem: FC<TaskItemProps> = ({
       </CardContent>
     </Card>
   );
-};
-
-export default React.memo(TaskItem);
+});
+TaskItem.displayName = 'TaskItem';
+export default TaskItem;
