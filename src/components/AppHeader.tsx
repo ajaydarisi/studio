@@ -3,7 +3,7 @@
 
 import React, { type FC } from 'react';
 import { Button } from "@/components/ui/button";
-import { CalendarCheck2, LogIn, LogOut, UserCircle, UserCog } from "lucide-react";
+import { CalendarCheck2, LogIn, LogOut, UserCircle, UserCog, PlusCircle, Sparkles } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
@@ -14,12 +14,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import TaskForm from "@/components/TaskForm";
+import type { Task } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggleButton } from '@/components/ThemeToggleButton';
 
 
 interface AppHeaderProps {
-  // Props onSmartSchedule, isScheduling, and onTriggerAddTaskDialog are removed
+  // No props needed as actions are moved to page.tsx
 }
 
 const AppHeader: FC<AppHeaderProps> = React.memo(() => {
@@ -33,7 +36,6 @@ const AppHeader: FC<AppHeaderProps> = React.memo(() => {
       toast({ title: 'Logout Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      // router.push('/login'); // AuthProvider handles redirect
     }
   }, [signOut, toast]);
 
@@ -77,21 +79,16 @@ const AppHeader: FC<AppHeaderProps> = React.memo(() => {
   ), [user, authLoading, handleGoToProfile, handleSignOut, router]);
 
   return (
-    <header className="mb-6 pb-4 border-b">
-      <div className="flex flex-col sm:flex-row items-center justify-between w-full">
-        {/* Top row: Logo and Auth/Theme */}
-        <div className="w-full flex items-center justify-between sm:mb-0">
-            <div className="flex items-center space-x-3">
-                <CalendarCheck2 className="h-8 w-8 text-primary" />
-                <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-                <ThemeToggleButton />
-                <AuthButtonBlock />
-            </div>
+    <header className="py-4 px-4 border-b mb-8"> {/* Consistent padding and bottom margin */}
+      <div className="container mx-auto flex items-center justify-between w-full"> {/* Centered container */}
+        <div className="flex items-center space-x-3">
+            <CalendarCheck2 className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
         </div>
-
-        {/* Action buttons are now moved to page.tsx */}
+        <div className="flex items-center space-x-2">
+            <ThemeToggleButton />
+            <AuthButtonBlock />
+        </div>
       </div>
     </header>
   );
