@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { FC } from 'react'; 
+import React, { type FC } from 'react';
 import type { Task } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -11,7 +11,7 @@ interface ProgressIndicatorProps {
   tasks: Task[];
 }
 
-const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
+const ProgressIndicator: FC<ProgressIndicatorProps> = React.memo(({ tasks }) => {
   const totalTasks = tasks.length;
   const completedTasksArray = tasks.filter((task) => task.completed === true);
   const completedTasks = completedTasksArray.length;
@@ -20,14 +20,14 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
   const totalEstimatedTime = tasks.reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0);
   const completedEstimatedTime = completedTasksArray
     .reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0);
-  
+
   const timeProgress = totalEstimatedTime > 0 ? (completedEstimatedTime / totalEstimatedTime) * 100 : 0;
 
   const formatTime = (minutes: number) => {
     if (isNaN(minutes) || minutes < 0) minutes = 0;
-    if (minutes < 60) return `${Math.round(minutes)}m`; 
+    if (minutes < 60) return `${Math.round(minutes)}m`;
     const h = Math.floor(minutes / 60);
-    const m = Math.round(minutes % 60); 
+    const m = Math.round(minutes % 60);
     return `${h}h ${m > 0 ? `${m}m` : ""}`.trim();
   };
 
@@ -63,15 +63,16 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
             🎉 All tasks completed! Well done! 🎉
           </p>
         )}
-        {totalTasks > 0 && completedTasks < totalTasks && completedEstimatedTime > 0 && 
-         tasks.filter(t=> !t.completed).reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0) < completedEstimatedTime && (
+        {totalTasks > 0 && completedTasks < totalTasks && completedEstimatedTime > 0 && totalEstimatedTime > 0 &&
+         (completedEstimatedTime / totalEstimatedTime) >= 0.5 && ( // Example: if more than 50% of time is done
            <p className="text-center text-sm text-muted-foreground pt-2">
-            Keep it up! You&apos;re making good progress on time.
+            Keep it up! You&apos;re making good progress.
            </p>
         )}
       </CardContent>
     </Card>
   );
-};
+});
 
+ProgressIndicator.displayName = 'ProgressIndicator';
 export default ProgressIndicator;
