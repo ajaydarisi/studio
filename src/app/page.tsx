@@ -37,26 +37,21 @@ const mapSupabaseRowToTask = (row: any): Task => {
   if (row.dueDate && typeof row.dueDate === 'string') {
     let dateCandidate = parseISO(row.dueDate);
     if (isValidDate(dateCandidate)) {
-        // Handle case where Supabase might return just 'YYYY-MM-DD' by ensuring it's parsed as UTC start of day
         if (row.dueDate.length === 10 && row.dueDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-             // Explicitly parse as UTC to avoid timezone shifts based on client/server environment
              const [year, month, day] = row.dueDate.split('-').map(Number);
              parsedDueDate = new Date(Date.UTC(year, month - 1, day));
         } else {
-            parsedDueDate = dateCandidate; // Assume full ISO string, parseISO handles it
+            parsedDueDate = dateCandidate; 
         }
     } else {
-      // Fallback if parsing fails
-      parsedDueDate = startOfToday(); // Default to today if parsing fails
+      parsedDueDate = startOfToday(); 
     }
   } else if (row.dueDate instanceof Date) {
-    parsedDueDate = row.dueDate; // Already a Date object
+    parsedDueDate = row.dueDate; 
   } else {
-    // Fallback if dueDate is missing or not a string/Date (should not happen with schema)
-    parsedDueDate = startOfToday(); // Default to today
+    parsedDueDate = startOfToday(); 
   }
-
-  // Robust completed status mapping
+  
   let isTaskCompleted: boolean;
   const rawCompleted = row.completed;
 
@@ -67,7 +62,7 @@ const mapSupabaseRowToTask = (row: any): Task => {
   } else if (typeof rawCompleted === 'number') {
     isTaskCompleted = rawCompleted === 1;
   } else {
-    isTaskCompleted = false; // Default to false if undefined or unexpected type
+    isTaskCompleted = false; 
   }
   
   return {
@@ -84,11 +79,11 @@ const mapSupabaseRowToTask = (row: any): Task => {
 };
 
 
-const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId' | 'orderIndex' | 'completed'>[] = [
-  { description: "Morning workout session", estimatedCompletionTime: 45, priority: 'high', dueDate: addDays(startOfToday(), 0) },
-  { description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high', dueDate: addDays(startOfToday(), 1) },
-  { description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high', dueDate: addDays(startOfToday(), 1) },
-  { description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low', dueDate: addDays(startOfToday(), 2) },
+const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId' | 'orderIndex' | 'completed' | 'dueDate'>[] = [
+  { description: "Morning workout session", estimatedCompletionTime: 45, priority: 'high' },
+  { description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high' },
+  { description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high' },
+  { description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low' },
 ];
 
 export default function HomePage() {
@@ -165,7 +160,7 @@ export default function HomePage() {
           priority: taskSeed.priority,
           completed: taskSeed.description === "Morning workout session", // Example: Mark first as completed
           orderIndex: index,
-          dueDate: format(startOfDay(taskSeed.dueDate), "yyyy-MM-dd"),
+          dueDate: format(startOfDay(addDays(new Date(), index)), "yyyy-MM-dd"), // Seed with varying due dates
         }));
 
         const { error: insertError } = await supabase.from(TASKS_TABLE).insert(tasksToSeed);
@@ -252,8 +247,7 @@ export default function HomePage() {
       if (error) throw error;
       
       if (newTask) {
-        const mappedNewTask = mapSupabaseRowToTask(newTask);
-        setTasks(prevTasks => [...prevTasks, mappedNewTask].sort((a, b) => a.orderIndex - b.orderIndex));
+        await loadTasksFromSupabase(); // Refresh list after adding
       } else {
         await loadTasksFromSupabase(); // Fallback to full reload if newTask is null
       }
@@ -371,6 +365,7 @@ export default function HomePage() {
       await loadTasksFromSupabase(); 
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
     } catch (error: any) {      
+      console.error("Error deleting task from Supabase:", error);
       toast({ title: "Delete Error", description: `Could not delete task: ${error.message}. Reverting.`, variant: "destructive" });
       await loadTasksFromSupabase(); 
     }
@@ -379,7 +374,6 @@ export default function HomePage() {
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
-    // Optimistically update UI
     setTasks(newTasks.map((task, index) => ({ ...task, orderIndex: index })));
 
     const tasksToSaveForOrder = newTasks.map((task, index) => ({
@@ -444,6 +438,7 @@ export default function HomePage() {
     }
   }, [user, tasks, toast, saveTaskOrderToSupabase, loadTasksFromSupabase, setIsScheduling]);
 
+
   if (authLoading || (!session && isClient && router.pathname !== '/login' && router.pathname !== '/signup')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -492,11 +487,11 @@ export default function HomePage() {
           <div className="sm:col-span-1 flex flex-col">
              <div className="hidden sm:flex mb-6 flex-col gap-2 w-full">
                 <Button onClick={openAddTaskDialog} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
-                  <PlusCircle className="mr-2 h-5 w-5" /> 
+                  <PlusCircle className="mr-2 h-5 w-5 text-accent" /> 
                   Add New Task
                 </Button>
                 <Button onClick={handleSmartSchedule} disabled={isScheduling || tasks.length === 0} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
-                  <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin text-primary' : ''}`} />
+                  <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin text-primary' : 'text-accent'}`} />
                   {isScheduling ? "Optimizing..." : "Smart Schedule"}
                 </Button>
               </div>
@@ -507,7 +502,7 @@ export default function HomePage() {
                 disabled={isScheduling || tasks.length === 0}
                 variant="outline"
                 size="lg"
-                className="mt-4 shadow-sm hover:shadow-md transition-shadow w-full sm:hidden"
+                className="mt-4 shadow-sm hover:shadow-md transition-shadow w-full sm:hidden" 
               >
                 <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin text-primary' : 'text-accent'}`} />
                 {isScheduling ? "Optimizing..." : "Smart Schedule"}
@@ -546,12 +541,19 @@ export default function HomePage() {
                   {dialogMode === 'add' ? 'Add New Task' : 'Edit Task'}
                 </DialogTitle>
               </DialogHeader>
-              <DynamicTaskForm
-                onSubmit={handleDialogSubmit}
-                key={dialogMode === 'edit' && editingTask ? editingTask.id : 'add-task-form'}
-                initialValues={formInitialValues}
-                buttonText={dialogMode === 'add' ? 'Add Task' : 'Save Changes'}
-              />
+              <Suspense fallback={
+                  <div className="flex justify-center items-center p-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <p className="ml-2">Loading form...</p>
+                  </div>
+                }>
+                  <DynamicTaskForm
+                    onSubmit={handleDialogSubmit}
+                    key={dialogMode === 'edit' && editingTask ? editingTask.id : 'add-task-form'}
+                    initialValues={formInitialValues}
+                    buttonText={dialogMode === 'add' ? 'Add Task' : 'Save Changes'}
+                  />
+              </Suspense>
             </DialogContent>
           </Dialog>
       )}
