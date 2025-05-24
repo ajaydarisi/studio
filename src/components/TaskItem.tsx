@@ -37,9 +37,12 @@ const TaskItem: FC<TaskItemProps> = ({
 
   const priorityBorderColorClass = () => {
     const today = startOfToday();
-    const dueDate = task.dueDate ? startOfDay(new Date(task.dueDate)) : null;
+    // Ensure task.dueDate is treated as a Date object, assuming mapSupabaseRowToTask handles this.
+    // If task.dueDate can be a string, it needs to be new Date(task.dueDate)
+    const dueDate = task.dueDate instanceof Date ? startOfDay(task.dueDate) : startOfDay(new Date(task.dueDate));
 
-    if (!dueDate) return 'border-l-border'; // Default if no due date
+
+    if (!dueDate) return 'border-l-border'; // Default if no due date (should not happen if required)
 
     if (isPast(dueDate) && !isToday(dueDate)) return 'border-l-[hsl(var(--border-priority-high))]';
     if (isToday(dueDate)) return 'border-l-[hsl(var(--border-priority-high))]';
@@ -98,13 +101,14 @@ const TaskItem: FC<TaskItemProps> = ({
                     {task.dueDate && (
                       <div className="text-xs text-muted-foreground flex items-center mt-1 sm:mt-1 sm:ml-3">
                         <CalendarDays className="h-3 w-3 mr-1 text-primary" />
-                        Due: {format(new Date(task.dueDate), "MMM d, yyyy")}
+                        Due: {format(task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate), "MMM d, yyyy")}
                       </div>
                     )}
                 </div>
             </div>
 
-            <div className="mt-3 sm:mt-0 flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 sm:shrink-0 w-full sm:w-auto">
+            {/* Action buttons container - now always flex-row */}
+            <div className="mt-3 sm:mt-0 flex flex-row items-center space-x-2 shrink-0">
                 <Button
                     variant="ghost"
                     onClick={() => onEdit(task)}
@@ -112,12 +116,11 @@ const TaskItem: FC<TaskItemProps> = ({
                     className={cn(
                         "text-muted-foreground hover:text-primary",
                         "flex items-center",
-                        "w-full justify-start px-3 py-1.5 text-sm h-auto", // Mobile styles
-                        "sm:w-9 sm:h-9 sm:p-0 sm:justify-center" // Desktop icon button styles
+                        "w-9 h-9 p-0 justify-center" // Icon button style for all sizes
                     )}
                 >
                     <Pencil className="h-4 w-4 shrink-0" />
-                    <span className="ml-2 sm:hidden">Edit Task</span>
+                    <span className="sr-only">Edit Task</span> {/* Visually hidden, for accessibility */}
                 </Button>
                 
                 <Button
@@ -127,12 +130,11 @@ const TaskItem: FC<TaskItemProps> = ({
                     className={cn(
                         "text-muted-foreground hover:text-destructive",
                         "flex items-center", 
-                        "w-full justify-start px-3 py-1.5 text-sm h-auto", // Mobile styles
-                        "sm:w-9 sm:h-9 sm:p-0 sm:justify-center"  // Desktop icon button styles
+                        "w-9 h-9 p-0 justify-center"  // Icon button style for all sizes
                     )}
                 >
                     <Trash2 className="h-4 w-4 shrink-0" />
-                    <span className="ml-2 sm:hidden">Delete Task</span>
+                    <span className="sr-only">Delete Task</span> {/* Visually hidden, for accessibility */}
                 </Button>
             </div>
         </div>
