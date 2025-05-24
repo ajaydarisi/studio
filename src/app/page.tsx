@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import type { Task, TaskPriority } from "@/types";
+import type { Task } from "@/types";
 import { suggestOptimalTaskOrder, type TaskListInput, type TaskListOutput } from "@/ai/flows/suggest-optimal-task-order";
 import AppHeader from "@/components/AppHeader";
 import TaskList from "@/components/TaskList";
@@ -30,20 +30,21 @@ const mapSupabaseRowToTask = (row: any): Task => {
         if (row.dueDate.length === 10) { 
              // Parse as local date then treat as start of day UTC for consistency
              const [year, month, day] = row.dueDate.split('-').map(Number);
-             parsedDueDate = new Date(year, month - 1, day); // Local time, midnight
+             parsedDueDate = new Date(Date.UTC(year, month - 1, day)); 
         } else { // Assume it's a full ISO string
             parsedDueDate = dateCandidate; // Already UTC
         }
     } else {
-      parsedDueDate = startOfToday(); // Default to start of today UTC
+      parsedDueDate = startOfToday(); 
     }
   } else if (row.dueDate instanceof Date) {
     parsedDueDate = row.dueDate; // Already a Date object
   } else {
-    parsedDueDate = startOfToday(); // Default to start of today UTC
+    parsedDueDate = startOfToday(); 
   }
 
   let isTaskCompleted: boolean;
+  // Robust boolean parsing
   if (typeof row.completed === 'boolean') {
     isTaskCompleted = row.completed;
   } else if (typeof row.completed === 'string') {
@@ -60,11 +61,11 @@ const mapSupabaseRowToTask = (row: any): Task => {
     userId: row.user_id,
     description: row.description,
     estimatedCompletionTime: Number(row.estimatedCompletionTime) || 0,
-    priority: row.priority as TaskPriority, // Keep for AI/backend
+    priority: row.priority, 
     completed: isTaskCompleted,
     createdAt: row.createdAt ? parseISO(row.createdAt).getTime() : Date.now(),
     orderIndex: row.orderIndex,
-    dueDate: startOfDay(parsedDueDate), // Ensure it's always start of day, UTC
+    dueDate: startOfDay(parsedDueDate), 
   };
 };
 
@@ -79,8 +80,8 @@ const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId' | 'dueDate'>[] 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isClient, setIsClient] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true); // For initial load and major refetches
-  const [isScheduling, setIsScheduling] = useState(false); // For Smart Schedule button
+  const [isLoadingData, setIsLoadingData] = useState(true); 
+  const [isScheduling, setIsScheduling] = useState(false); 
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'add' | 'edit'>('add');
@@ -89,6 +90,7 @@ export default function HomePage() {
   const { toast } = useToast();
   const { session, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+
 
   const formInitialValues = useMemo(() => {
     if (dialogMode === 'edit' && editingTask) {
@@ -104,6 +106,7 @@ export default function HomePage() {
         dueDate: new Date(), 
     };
   }, [dialogMode, editingTask]);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -143,7 +146,7 @@ export default function HomePage() {
           priority: taskSeed.priority,
           completed: taskSeed.completed,
           orderIndex: index,
-          dueDate: format(addDays(new Date(), index + 1), "yyyy-MM-dd"), // Assign sample due dates
+          dueDate: format(addDays(startOfToday(), index + 1), "yyyy-MM-dd"), 
         }));
 
         const { error: insertError } = await supabase.from(TASKS_TABLE).insert(tasksToSeed);
@@ -214,7 +217,7 @@ export default function HomePage() {
       user_id: user.id,
       description,
       estimatedCompletionTime: estimatedTime,
-      priority: 'medium' as TaskPriority, 
+      priority: 'medium', 
       completed: false,
       orderIndex: tasks.length, 
       dueDate: format(startOfDay(dueDate), "yyyy-MM-dd"), 
@@ -234,7 +237,7 @@ export default function HomePage() {
       toast({ title: "Task Added", description: `"${description}" has been added.` });
       
     } catch (error: any) {
-      toast({ title: "Add Task Error", description: error.message || "Could not add task.", variant: "destructive" });
+      toast({ title: "Add Task Error", description: `Could not add task: ${error.message || "Unknown error"}.`, variant: "destructive" });
       await loadTasksFromSupabase(); 
       return Promise.reject(error); 
     }
@@ -267,7 +270,7 @@ export default function HomePage() {
       toast({ title: "Task Updated", description: `"${description}" has been updated.` });
       
     } catch (error: any) {
-      toast({ title: "Update Task Error", description: error.message || "Could not update task.", variant: "destructive" });
+      toast({ title: "Update Task Error", description: `Could not update task: ${error.message || "Unknown error"}.`, variant: "destructive" });
       await loadTasksFromSupabase(); 
       return Promise.reject(error); 
     }
@@ -352,6 +355,7 @@ export default function HomePage() {
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
+    // Optimistically update UI first
     setTasks(newTasks);
 
     const tasksToSaveForOrder = newTasks.map((task, index) => ({
@@ -361,10 +365,12 @@ export default function HomePage() {
 
     try {
       await saveTaskOrderToSupabase(tasksToSaveForOrder);
-      await loadTasksFromSupabase(); 
+      // No full reload here; trust the optimistic update for smoother UX for drag-n-drop.
+      // If a full reload is desired after reorder, uncomment the line below:
+      // await loadTasksFromSupabase(); 
     } catch (error: any) {
         toast({ title: "Reorder Failed", description: "Could not save new task order. Reverting.", variant: "destructive"});
-        await loadTasksFromSupabase(); 
+        await loadTasksFromSupabase(); // Revert to DB state on error
     }
   }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase, setTasks]); 
 
@@ -415,19 +421,28 @@ export default function HomePage() {
     }
   }, [user, tasks, toast, saveTaskOrderToSupabase, loadTasksFromSupabase, setIsScheduling]); 
 
-  if (authLoading || isLoadingData && (!session || !user) && isClient) {
+  if (authLoading || (!session && isClient && router.pathname !== '/login' && router.pathname !== '/signup')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-foreground ml-2">
-          {authLoading ? "Authenticating..." : "Loading tasks..."}
+          {authLoading ? "Authenticating..." : "Redirecting to login..."}
         </p>
+      </div>
+    );
+  }
+
+  if (isLoadingData && session && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-foreground ml-2">Loading tasks...</p>
       </div>
     );
   }
   
   if (!authLoading && !session && isClient && router.pathname !== '/login' && router.pathname !== '/signup') {
-    return (
+     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-foreground ml-2">Redirecting to login...</p>
@@ -453,7 +468,7 @@ export default function HomePage() {
           </div>
           <div className="sm:col-span-1 flex flex-col">
             {user && ( 
-              <div className="mb-6 flex flex-col sm:flex-col gap-2 w-full"> 
+              <div className="hidden sm:flex mb-6 flex-col gap-2 w-full"> 
                 <Button onClick={handleOpenAddTaskDialog} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
                   <PlusCircle className="mr-2 h-5 w-5 text-accent" />
                   Add New Task
@@ -524,3 +539,4 @@ export default function HomePage() {
     </div>
   );
 }
+
