@@ -119,7 +119,7 @@ export default function HomePage() {
         router.push('/login');
       }
     }
-  }, [authLoading, session, router, isClient]); // Added router.pathname to dependencies if it's used in condition
+  }, [authLoading, session, router, isClient]); 
 
   const loadTasksFromSupabase = useCallback(async () => {
     if (!user) {
@@ -177,7 +177,7 @@ export default function HomePage() {
       setIsLoadingData(false);
       console.log("Finished loading tasks. isLoadingData set to false.");
     }
-  }, [toast, user]); // Removed `tasks` from dependency array to prevent potential loops on setTasks
+  }, [toast, user]); 
 
   useEffect(() => {
     if (session && user && isClient) {
@@ -201,7 +201,6 @@ export default function HomePage() {
 
   const saveTaskOrderToSupabase = useCallback(async (tasksToSave: Pick<Task, 'id' | 'orderIndex'>[]) => {
     if (!user) return;
-    // No setIsLoadingData(true) here, let the calling function manage UI loading state
     try {
       console.log("Saving task order to Supabase:", tasksToSave);
       const updates = tasksToSave.map(task =>
@@ -209,7 +208,7 @@ export default function HomePage() {
           .from(TASKS_TABLE)
           .update({ orderIndex: task.orderIndex })
           .eq('id', task.id)
-          .eq('user_id', user.id) // Ensure user can only update their own tasks
+          .eq('user_id', user.id) 
       );
       const results = await Promise.all(updates);
       results.forEach(result => {
@@ -219,8 +218,7 @@ export default function HomePage() {
     } catch (error: any) {
       console.error("Error saving task order to Supabase:", error);
       toast({ title: "Save Order Error", description: `Could not save task order: ${error.message}`, variant: "destructive" });
-      // Let the caller handle refetching or error display
-      throw error; // Re-throw to be caught by caller
+      throw error; 
     }
   }, [toast, user]);
 
@@ -244,24 +242,22 @@ export default function HomePage() {
       const { data: insertedTaskResult, error } = await supabase
         .from(TASKS_TABLE)
         .insert(newTaskData)
-        .select() // Select the inserted row
-        .single(); // Expect a single row back
+        .select() 
+        .single(); 
 
       if (error) throw error;
       if (!insertedTaskResult) throw new Error("Failed to retrieve inserted task data.");
       
-      // Optimistic update (or just reload from Supabase if preferred)
-      // For simplicity and consistency with edit/delete, we will reload.
-      await loadTasksFromSupabase(); // Reload tasks to get the new task with server-generated ID/createdAt
+      await loadTasksFromSupabase(); 
       toast({ title: "Task Added", description: `"${description}" has been added.` });
       
     } catch (error: any) {
       console.error("Error adding task to Supabase:", error);
       toast({ title: "Add Task Error", description: error.message || "Could not add task.", variant: "destructive" });
-      await loadTasksFromSupabase(); // Reload tasks to ensure UI consistency even on error
-      return Promise.reject(error); // Propagate error for TaskForm to handle its loading state
+      await loadTasksFromSupabase(); 
+      return Promise.reject(error); 
     }
-  }, [tasks.length, toast, loadTasksFromSupabase, user]); // Added `tasks.length` for orderIndex logic
+  }, [tasks.length, toast, loadTasksFromSupabase, user]); 
 
   const handleActualUpdateTask = useCallback(async (taskId: string, description: string, estimatedTime: number, dueDate: Date): Promise<void> => {
     if (!user) {
@@ -272,8 +268,7 @@ export default function HomePage() {
     const updatedTaskData = {
       description,
       estimatedCompletionTime: estimatedTime,
-      dueDate: format(startOfDay(dueDate), "yyyy-MM-dd"), // Ensure dueDate is start of day and formatted
-      // priority is not updated here as it's removed from UI form
+      dueDate: format(startOfDay(dueDate), "yyyy-MM-dd"), 
     };
 
     try {
@@ -281,25 +276,25 @@ export default function HomePage() {
         .from(TASKS_TABLE)
         .update(updatedTaskData)
         .eq('id', taskId)
-        .eq('user_id', user.id) // Ensure user can only update their own tasks
-        .select() // Optionally select to confirm
-        .single(); // Expect a single row back if select is used
+        .eq('user_id', user.id) 
+        .select() 
+        .single(); 
       
       if (error) throw error;
 
-      await loadTasksFromSupabase(); // Reload tasks to reflect changes
+      await loadTasksFromSupabase(); 
       toast({ title: "Task Updated", description: `"${description}" has been updated.` });
       
     } catch (error: any) {
       console.error("Error updating task in Supabase:", error);
       toast({ title: "Update Task Error", description: error.message || "Could not update task.", variant: "destructive" });
-      await loadTasksFromSupabase(); // Reload tasks to ensure UI consistency
-      return Promise.reject(error); // Propagate error for TaskForm
+      await loadTasksFromSupabase(); 
+      return Promise.reject(error); 
     }
   }, [toast, user, loadTasksFromSupabase]);
 
   const handleDialogSubmit = useCallback(async (description: string, estimatedTime: number, dueDate: Date | null | undefined) => {
-    if (!dueDate) { // Should not happen if form validation is correct
+    if (!dueDate) { 
         toast({ title: "Due Date Required", description: "Please select a due date.", variant: "destructive" });
         return Promise.reject(new Error("Due date required"));
     }
@@ -309,32 +304,25 @@ export default function HomePage() {
       } else if (dialogMode === 'edit' && editingTask) {
         await handleActualUpdateTask(editingTask.id, description, estimatedTime, dueDate);
       }
-      setIsDialogOpen(false); // Close dialog on success
-      setEditingTask(null); // Reset editing task
+      setIsDialogOpen(false); 
+      setEditingTask(null); 
     } catch (error) {
-      // Errors are toasted by handleActualAddTask/UpdateTask
-      // We re-throw so TaskForm can stop its loading state.
       console.error("Dialog submit error:", error);
-      // Do not close dialog on error, let user retry or cancel.
-      // setIsDialogOpen(false); 
-      // setEditingTask(null);
     }
   }, [dialogMode, editingTask, handleActualAddTask, handleActualUpdateTask, toast, setIsDialogOpen, setEditingTask]);
 
   const handleOpenAddTaskDialog = useCallback(() => {
     setDialogMode('add');
-    setEditingTask(null); // Clear any previous editing task
+    setEditingTask(null); 
     setIsDialogOpen(true);
-  }, [setDialogMode, setEditingTask, setIsDialogOpen]); // Stable setters
+  }, [setDialogMode, setEditingTask, setIsDialogOpen]); 
 
   const handleOpenEditDialog = useCallback((taskToEdit: Task) => {
     console.log("Opening edit dialog for task:", taskToEdit);
     setDialogMode('edit');
-    // Ensure the task object passed to editingTask is a fresh copy if deep modifications happen
-    // or ensure mapSupabaseRowToTask correctly handles Date objects for dueDate.
     setEditingTask({...taskToEdit}); 
     setIsDialogOpen(true);
-  }, [setDialogMode, setEditingTask, setIsDialogOpen]); // Stable setters
+  }, [setDialogMode, setEditingTask, setIsDialogOpen]); 
 
 
   const handleToggleComplete = useCallback(async (id: string) => {
@@ -343,7 +331,6 @@ export default function HomePage() {
     if (!task) return;
     const newCompletedStatus = !task.completed;
     
-    // Optimistic UI update
     const originalTasks = [...tasks];
     setTasks((prevTasks) =>
       prevTasks.map((t) => (t.id === id ? { ...t, completed: newCompletedStatus } : t))
@@ -354,27 +341,24 @@ export default function HomePage() {
         .from(TASKS_TABLE)
         .update({ completed: newCompletedStatus })
         .eq('id', id)
-        .eq('user_id', user.id); // Ensure user can only update their own tasks
+        .eq('user_id', user.id); 
       if (error) {
-        setTasks(originalTasks); // Revert optimistic update on error
+        setTasks(originalTasks); 
         toast({ title: "Update Error", description: `Could not update task: ${error.message}. Reverting.`, variant: "destructive" });
         throw error;
       }
       toast({ title: "Task Updated" });
-      // No full reload needed if optimistic update is sufficient and no other derived state changes
     } catch (error: any) {
       console.error("Error updating task completion in Supabase:", error);
-      // UI is already reverted if error occurred.
     }
-  }, [tasks, toast, user, setTasks]); // Added setTasks
+  }, [tasks, toast, user, setTasks]); 
 
   const handleDeleteTask = useCallback(async (id: string) => {
     if (!user) return;
     const taskToDelete = tasks.find(t => t.id === id);
     if (!taskToDelete) return;
     
-    // Optimistic UI update (remove task from list)
-    const originalTasks = [...tasks]; // Keep a copy for potential revert
+    const originalTasks = [...tasks]; 
     setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id)); 
 
     try {
@@ -382,29 +366,23 @@ export default function HomePage() {
         .from(TASKS_TABLE)
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id); // Ensure user can only delete their own tasks
+        .eq('user_id', user.id); 
       if (deleteError) throw deleteError;
       
-      // If deletion is successful, re-calculate orderIndex for remaining tasks
-      // This is a simplification; for large lists, more targeted updates might be better.
-      // Or, if order isn't strictly contiguous, this might not be needed.
-      // For now, we'll reload the list to ensure order consistency if it changed.
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
-      await loadTasksFromSupabase(); // Reload to reflect potential order changes and ensure consistency
+      await loadTasksFromSupabase(); 
     } catch (error: any) {
       console.error("Error deleting task from Supabase:", error);
       toast({ title: "Delete Error", description: `Could not delete task: ${error.message}. Reverting.`, variant: "destructive" });
-      setTasks(originalTasks); // Revert optimistic update on error
-      await loadTasksFromSupabase(); // Still reload to ensure server state is source of truth
+      setTasks(originalTasks); 
+      await loadTasksFromSupabase(); 
     }
-  }, [tasks, toast, user, loadTasksFromSupabase, setTasks]); // Added setTasks
+  }, [tasks, toast, user, loadTasksFromSupabase, setTasks]); 
 
 
-  // This function is for drag-and-drop reordering
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
 
-    // Update UI optimistically
     setTasks(newTasks); 
 
     const tasksToSaveForOrder = newTasks.map((task, index) => ({
@@ -414,14 +392,11 @@ export default function HomePage() {
 
     try {
       await saveTaskOrderToSupabase(tasksToSaveForOrder);
-      // After saving order, reload from Supabase to ensure data consistency
-      // This also handles any server-side changes or validations.
       await loadTasksFromSupabase(); 
     } catch (error: any) {
-        // saveTaskOrderToSupabase already toasts. If it fails, reload to revert to server state.
         await loadTasksFromSupabase(); 
     }
-  }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase, setTasks]); // Added setTasks
+  }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase, setTasks]); 
 
   const handleSmartSchedule = useCallback(async () => {
     if (!user) {
@@ -439,22 +414,19 @@ export default function HomePage() {
           id: task.id,
           description: task.description,
           estimatedCompletionTime: task.estimatedCompletionTime,
-          priority: task.priority, // Priority is still part of the AI schema
-          // Ensure dueDate is a Date object if AI schema expects Date, or string if it expects string.
-          // Task object already has dueDate as a Date object.
-          dueDate: task.dueDate, 
+          priority: task.priority,
+          dueDate: task.dueDate.toISOString(), // Convert Date to ISO string
         })),
       };
       const result: TaskListOutput = await suggestOptimalTaskOrder(inputForAI);
 
-      // Create an array of {id, orderIndex} for saving
       const taskOrderUpdates = result.orderedTasks.map((aiTask, index) => ({
         id: aiTask.id,
         orderIndex: index,
       }));
 
-      await saveTaskOrderToSupabase(taskOrderUpdates); // This only does DB work now
-      await loadTasksFromSupabase(); // Reload tasks from Supabase to reflect new order
+      await saveTaskOrderToSupabase(taskOrderUpdates); 
+      await loadTasksFromSupabase(); 
 
       toast({
         title: "Schedule Optimized!",
@@ -468,15 +440,13 @@ export default function HomePage() {
         description: `Could not optimize the schedule: ${error.message}. Please try again.`,
         variant: "destructive",
       });
-       // Even on error, reload to ensure consistency with DB
        await loadTasksFromSupabase(); 
     } finally {
       setIsScheduling(false);
     }
-  }, [user, tasks, toast, saveTaskOrderToSupabase, loadTasksFromSupabase, setIsScheduling]); // Added tasks
+  }, [user, tasks, toast, saveTaskOrderToSupabase, loadTasksFromSupabase, setIsScheduling]); 
 
 
-  // Conditional rendering for loading states
   if (authLoading || (!session && isClient && router.pathname !== '/login' && router.pathname !== '/signup')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -486,8 +456,7 @@ export default function HomePage() {
     );
   }
 
-  // Show loading tasks state only if user is logged in
-  if (isLoadingData && session && user) { // Ensure session and user are present
+  if (isLoadingData && session && user) { 
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -508,12 +477,12 @@ export default function HomePage() {
               setTasks={handleSetTasks}
               onToggleComplete={handleToggleComplete}
               onDelete={handleDeleteTask}
-              onEditTask={handleOpenEditDialog} // Pass the edit handler
+              onEditTask={handleOpenEditDialog} 
             />
           </div>
           <div className="sm:col-span-1 flex flex-col">
-            {user && ( // Only show these buttons if a user is logged in
-              <div className="mb-6 hidden sm:flex sm:flex-col gap-2 w-full"> {/* Desktop buttons */}
+            {user && ( 
+              <div className="mb-6 hidden sm:flex sm:flex-col gap-2 w-full"> 
                 <Button onClick={handleOpenAddTaskDialog} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
                   <PlusCircle className="mr-2 h-5 w-5 text-accent" />
                   Add New Task
@@ -525,13 +494,13 @@ export default function HomePage() {
               </div>
             )}
             <ProgressIndicator tasks={tasks} />
-            {user && ( // Only show mobile smart schedule if user logged in
+            {user && ( 
               <Button 
                 onClick={handleSmartSchedule} 
                 disabled={isScheduling || tasks.length === 0} 
                 variant="outline" 
                 size="lg" 
-                className="mt-4 shadow-sm hover:shadow-md transition-shadow w-full sm:hidden" // Hidden on sm and up
+                className="mt-4 shadow-sm hover:shadow-md transition-shadow w-full sm:hidden" 
               >
                 <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin text-primary' : 'text-accent'}`} />
                 {isScheduling ? "Optimizing..." : "Smart Schedule"}
@@ -541,7 +510,7 @@ export default function HomePage() {
         </div>
       </main>
 
-      {user && ( // Only show FAB if user is logged in
+      {user && ( 
         <Button
           className="sm:hidden fixed bottom-20 right-6 rounded-full h-16 w-16 shadow-xl z-50 flex items-center justify-center text-primary-foreground hover:text-primary-foreground bg-primary hover:bg-primary/90"
           variant={"default"} 
@@ -556,7 +525,6 @@ export default function HomePage() {
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
         if (!open) {
-            // Reset mode and editing task when dialog is closed, regardless of how it was closed
             setEditingTask(null); 
             setDialogMode('add'); 
         }
@@ -572,8 +540,6 @@ export default function HomePage() {
           </DialogHeader>
           <TaskForm 
             onSubmit={handleDialogSubmit} 
-            // Keying the form helps ensure it fully resets when initialValues change,
-            // especially when switching between add/edit or different edit items.
             key={dialogMode === 'edit' && editingTask ? editingTask.id : 'add-task-form'}
             initialValues={formInitialValues} 
             buttonText={dialogMode === 'add' ? 'Add Task' : 'Save Changes'}

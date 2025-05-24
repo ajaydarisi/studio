@@ -21,10 +21,10 @@ const TaskSchema = z.object({
     .number()
     .describe('Estimated completion time in minutes.'),
   priority: z.enum(['high', 'medium', 'low']).describe('Priority of the task.'),
-  dueDate: z.date().optional().nullable().describe('Optional due date of the task.'),
+  dueDate: z.string().datetime({ message: "dueDate must be a valid ISO 8601 date-time string" }).describe('Due date of the task, as an ISO 8601 string.'),
 });
 
-export type Task = z.infer<typeof TaskSchema>; // Note: This Task type is for the AI flow's schema. The app might have a slightly different one (e.g. dueDate as Date object vs string).
+export type Task = z.infer<typeof TaskSchema>; 
 
 const TaskListInputSchema = z.object({
   tasks: z.array(TaskSchema).describe('List of tasks to be ordered.'),
@@ -34,7 +34,7 @@ export type TaskListInput = z.infer<typeof TaskListInputSchema>;
 
 const TaskListOutputSchema = z.object({
   orderedTasks: z
-    .array(TaskSchema) // AI will return tasks matching its input TaskSchema
+    .array(TaskSchema) 
     .describe('List of tasks ordered by optimal completion order.'),
   reasoning: z
     .string()
@@ -68,13 +68,12 @@ Tasks:
     description: {{this.description}}
     estimatedCompletionTime: {{this.estimatedCompletionTime}}
     priority: {{this.priority}}
-    {{#if this.dueDate}}dueDate: {{this.dueDate}} (Handle as ISO date string or Date object as provided){{/if}}
+    dueDate: {{this.dueDate}}
 {{/each}}
 
 Provide the ordered list of tasks and a brief reasoning for your suggested order.
 The output 'orderedTasks' array should contain all original tasks, just reordered.
-The 'dueDate' in the output tasks should be in the same format as it was received (e.g., an ISO date string if it was a string, or a Date object representation if it was a Date object).
-If a task had no due date, it should remain without one in the output.
+The 'dueDate' in the output tasks must be an ISO 8601 date-time string, identical to the input format.
 `,
 });
 
@@ -85,10 +84,8 @@ const suggestOptimalTaskOrderFlow = ai.defineFlow(
     outputSchema: TaskListOutputSchema,
   },
   async input => {
-    // Ensure Date objects for dueDates are passed correctly to the prompt if they are Date objects
-    // The Zod schema already handles this conversion from Date to string/number if needed for the prompt context
-    // but for the AI's understanding, the original Date object if present is fine.
     const {output} = await prompt(input);
     return output!;
   }
 );
+
