@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import dynamic from 'next/dynamic';
 import type { Task } from "@/types";
 import { suggestOptimalTaskOrder, type TaskListInput, type TaskListOutput } from "@/ai/flows/suggest-optimal-task-order";
@@ -46,14 +46,14 @@ const mapSupabaseRowToTask = (row: any): Task => {
             parsedDueDate = dateCandidate; // Assume full ISO string, parseISO handles it
         }
     } else {
-      // Fallback if parsing fails, though with a NOT NULL constraint, this should be rare
-      parsedDueDate = startOfToday();
+      // Fallback if parsing fails
+      parsedDueDate = startOfToday(); // Default to today if parsing fails
     }
   } else if (row.dueDate instanceof Date) {
     parsedDueDate = row.dueDate; // Already a Date object
   } else {
     // Fallback if dueDate is missing or not a string/Date (should not happen with schema)
-    parsedDueDate = startOfToday();
+    parsedDueDate = startOfToday(); // Default to today
   }
 
   // Robust completed status mapping
@@ -75,20 +75,20 @@ const mapSupabaseRowToTask = (row: any): Task => {
     userId: row.user_id,
     description: row.description,
     estimatedCompletionTime: Number(row.estimatedCompletionTime) || 0,
-    priority: row.priority || 'medium', // Default to medium if not present
+    priority: row.priority || 'medium', 
     completed: isTaskCompleted,
-    createdAt: row.createdAt ? parseISO(row.createdAt).getTime() : Date.now(), // Convert ISO string to timestamp
+    createdAt: row.createdAt ? parseISO(row.createdAt).getTime() : Date.now(),
     orderIndex: typeof row.orderIndex === 'number' ? row.orderIndex : 0,
-    dueDate: startOfDay(parsedDueDate), // Ensure we are working with start of day for consistency
+    dueDate: startOfDay(parsedDueDate), 
   };
 };
 
 
-const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId' | 'orderIndex'>[] = [
-  { description: "Morning workout session", estimatedCompletionTime: 45, priority: 'high', completed: true, dueDate: addDays(startOfToday(), 0) },
-  { description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high', completed: false, dueDate: addDays(startOfToday(), 1) },
-  { description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high', completed: false, dueDate: addDays(startOfToday(), 1) },
-  { description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low', completed: false, dueDate: addDays(startOfToday(), 2) },
+const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId' | 'orderIndex' | 'completed'>[] = [
+  { description: "Morning workout session", estimatedCompletionTime: 45, priority: 'high', dueDate: addDays(startOfToday(), 0) },
+  { description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high', dueDate: addDays(startOfToday(), 1) },
+  { description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high', dueDate: addDays(startOfToday(), 1) },
+  { description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low', dueDate: addDays(startOfToday(), 2) },
 ];
 
 export default function HomePage() {
@@ -108,30 +108,27 @@ export default function HomePage() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const formInitialValues = useMemo(() => {
     if (dialogMode === 'edit' && editingTask) {
       return {
         description: editingTask.description,
         estimatedCompletionTime: editingTask.estimatedCompletionTime,
-        // Ensure dueDate is a Date object for the form
         dueDate: editingTask.dueDate instanceof Date ? editingTask.dueDate : startOfDay(new Date(editingTask.dueDate)),
       };
     }
     return {
         description: "",
         estimatedCompletionTime: 30,
-        dueDate: new Date(), // For new tasks, default to today
+        dueDate: new Date(), 
     };
   }, [dialogMode, editingTask]);
 
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
   useEffect(() => {
     if (!authLoading && !session && isClient) {
-      // Avoid redirect loops if already on login/signup
       if (router.pathname !== '/login' && router.pathname !== '/signup') {
         router.push('/login');
       }
@@ -166,16 +163,14 @@ export default function HomePage() {
           description: taskSeed.description,
           estimatedCompletionTime: taskSeed.estimatedCompletionTime,
           priority: taskSeed.priority,
-          completed: taskSeed.completed,
+          completed: taskSeed.description === "Morning workout session", // Example: Mark first as completed
           orderIndex: index,
-          // Ensure dueDate is formatted correctly for Supabase insert (YYYY-MM-DD)
           dueDate: format(startOfDay(taskSeed.dueDate), "yyyy-MM-dd"),
         }));
 
         const { error: insertError } = await supabase.from(TASKS_TABLE).insert(tasksToSeed);
         if (insertError) throw insertError;
 
-        // Re-fetch after seeding to get IDs and ensure consistency
         const { data: seededData, error: fetchSeededError } = await supabase
           .from(TASKS_TABLE)
           .select('*')
@@ -193,7 +188,7 @@ export default function HomePage() {
         setIsInitialPageLoading(false);
       }
     }
-  }, [toast, user]); // Removed 'tasks' from dependencies to avoid potential loops if loadTasksFromSupabase is called within an effect that also depends on tasks
+  }, [toast, user]); 
 
   useEffect(() => {
     if (session && user && isClient) {
@@ -203,10 +198,9 @@ export default function HomePage() {
           loadTasksFromSupabase(true); 
       } else {
           toast({ title: "Supabase Not Configured", description: "Please check your Supabase credentials in .env and restart the server.", variant: "destructive", duration: 10000});
-          setIsInitialPageLoading(false); // Ensure loader stops if Supabase isn't configured
+          setIsInitialPageLoading(false); 
       }
     } else if (!authLoading && !session && isClient) {
-        // Not logged in, stop initial loader and clear tasks
         setIsInitialPageLoading(false);
         setTasks([]);
     }
@@ -226,10 +220,9 @@ export default function HomePage() {
       results.forEach(result => {
         if (result.error) throw result.error;
       });
-      // Do not reload tasks here, let the calling function decide
     } catch (error: any) {
       toast({ title: "Save Order Error", description: `Could not save task order: ${error.message}`, variant: "destructive" });
-      await loadTasksFromSupabase(); // Reload on error to revert optimistic UI
+      await loadTasksFromSupabase(); 
     }
   }, [toast, user, loadTasksFromSupabase]);
 
@@ -245,27 +238,31 @@ export default function HomePage() {
       estimatedCompletionTime: estimatedTime,
       priority: 'medium', 
       completed: false,
-      orderIndex: tasks.length, // New tasks go to the end
-      dueDate: format(startOfDay(dueDate), "yyyy-MM-dd"), // Ensure YYYY-MM-DD for Supabase
+      orderIndex: tasks.length, 
+      dueDate: format(startOfDay(dueDate), "yyyy-MM-dd"), 
     };
 
     try {
-      const { error } = await supabase
+      const { data: newTask, error } = await supabase
         .from(TASKS_TABLE)
         .insert(newTaskData)
-        .select() // Select to get the newly created task with its ID
+        .select() 
         .single();
 
       if (error) throw error;
       
-      // Instead of full reload, optimistically add or just reload
-      await loadTasksFromSupabase(); // Refresh the list to include the new task
+      if (newTask) {
+        const mappedNewTask = mapSupabaseRowToTask(newTask);
+        setTasks(prevTasks => [...prevTasks, mappedNewTask].sort((a, b) => a.orderIndex - b.orderIndex));
+      } else {
+        await loadTasksFromSupabase(); // Fallback to full reload if newTask is null
+      }
       toast({ title: "Task Added", description: `"${description}" has been added.` });
 
     } catch (error: any) {
       toast({ title: "Add Task Error", description: `Could not add task: ${error.message || "Unknown error"}.`, variant: "destructive" });
-      await loadTasksFromSupabase(); // Ensure UI consistency on error
-      return Promise.reject(error); // Propagate error for form handling
+      await loadTasksFromSupabase(); 
+      return Promise.reject(error); 
     }
   }, [tasks.length, toast, loadTasksFromSupabase, user]);
 
@@ -278,7 +275,7 @@ export default function HomePage() {
     const updatedTaskData = {
       description,
       estimatedCompletionTime: estimatedTime,
-      dueDate: format(startOfDay(dueDate), "yyyy-MM-dd"), // Ensure YYYY-MM-DD for Supabase
+      dueDate: format(startOfDay(dueDate), "yyyy-MM-dd"), 
     };
 
     try {
@@ -287,25 +284,24 @@ export default function HomePage() {
         .update(updatedTaskData)
         .eq('id', taskId)
         .eq('user_id', user.id)
-        .select() // Select to get the updated task
+        .select() 
         .single();
 
       if (error) throw error;
 
-      await loadTasksFromSupabase(); // Refresh the list
+      await loadTasksFromSupabase(); 
       toast({ title: "Task Updated", description: `"${description}" has been updated.` });
 
     } catch (error: any) {
       toast({ title: "Update Task Error", description: `Could not update task: ${error.message || "Unknown error"}.`, variant: "destructive" });
-      await loadTasksFromSupabase(); // Ensure UI consistency on error
-      return Promise.reject(error); // Propagate error
+      await loadTasksFromSupabase(); 
+      return Promise.reject(error); 
     }
   }, [toast, user, loadTasksFromSupabase]);
 
 
   const handleDialogSubmit = useCallback(async (description: string, estimatedTime: number, dueDate: Date | null | undefined) => {
-    // Due date is now required by TaskForm schema, so it should always be a Date object here.
-    if (!dueDate) { // Should not happen if form validation is correct
+    if (!dueDate) { 
         toast({ title: "Due Date Required", description: "Please select a due date.", variant: "destructive" });
         return Promise.reject(new Error("Due date required"));
     }
@@ -315,10 +311,10 @@ export default function HomePage() {
       } else if (dialogMode === 'edit' && editingTask) {
         await handleActualUpdateTask(editingTask.id, description, estimatedTime, dueDate);
       }
-      setIsDialogOpen(false); // Close dialog on successful submission
-      setEditingTask(null);   // Clear editing task
+      setIsDialogOpen(false); 
+      setEditingTask(null);   
     } catch (error) {
-      // Errors are toasted within handleActualAddTask/UpdateTask, form state will reflect submission failure
+      // Errors are toasted within handleActualAddTask/UpdateTask
     }
   }, [dialogMode, editingTask, handleActualAddTask, handleActualUpdateTask, toast, setIsDialogOpen, setEditingTask]);
 
@@ -330,7 +326,7 @@ export default function HomePage() {
 
   const openEditTaskDialog = useCallback((taskToEdit: Task) => {
     setDialogMode('edit');
-    setEditingTask({...taskToEdit}); // Create a copy to avoid direct state mutation
+    setEditingTask({...taskToEdit}); 
     setIsDialogOpen(true);
   }, [setDialogMode, setEditingTask, setIsDialogOpen]);
 
@@ -350,12 +346,12 @@ export default function HomePage() {
         .eq('user_id', user.id);
       if (error) {
         toast({ title: "Update Error", description: `Could not update task: ${error.message}. Reverting.`, variant: "destructive" });
-        throw error; // Throw to be caught by outer catch
+        throw error; 
       }
       toast({ title: "Task Updated" });
-      await loadTasksFromSupabase(); // Refresh from DB to ensure consistency
+      await loadTasksFromSupabase(); 
     } catch (error: any) {
-      await loadTasksFromSupabase(); // Ensure UI reflects DB state even on error
+      await loadTasksFromSupabase(); 
     }
   }, [tasks, toast, user, loadTasksFromSupabase]);
 
@@ -371,8 +367,7 @@ export default function HomePage() {
         .eq('id', id)
         .eq('user_id', user.id);
       if (deleteError) throw deleteError;
-
-      // After successful delete, re-fetch tasks to update order and UI
+ 
       await loadTasksFromSupabase(); 
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
     } catch (error: any) {      
@@ -384,7 +379,8 @@ export default function HomePage() {
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
-    setTasks(newTasks); // Optimistically update UI
+    // Optimistically update UI
+    setTasks(newTasks.map((task, index) => ({ ...task, orderIndex: index })));
 
     const tasksToSaveForOrder = newTasks.map((task, index) => ({
       id: task.id,
@@ -393,11 +389,10 @@ export default function HomePage() {
 
     try {
       await saveTaskOrderToSupabase(tasksToSaveForOrder);
-      // After saving order, refresh from DB to ensure UI consistency
       await loadTasksFromSupabase(); 
     } catch (error: any) {
         toast({ title: "Reorder Failed", description: "Could not save new task order. Reverting.", variant: "destructive"});
-        await loadTasksFromSupabase(); // Revert to DB state on error
+        await loadTasksFromSupabase(); 
     }
   }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase, setTasks]);
 
@@ -418,7 +413,7 @@ export default function HomePage() {
           description: task.description,
           estimatedCompletionTime: task.estimatedCompletionTime,
           priority: task.priority,
-          dueDate: task.dueDate.toISOString(), // Ensure ISO string for AI
+          dueDate: task.dueDate.toISOString(), 
           completed: task.completed,
         })),
       };
@@ -430,7 +425,7 @@ export default function HomePage() {
       }));
 
       await saveTaskOrderToSupabase(taskOrderUpdates);
-      await loadTasksFromSupabase(); // Refresh list from DB after reordering
+      await loadTasksFromSupabase(); 
 
       toast({
         title: "Schedule Optimized!",
@@ -443,7 +438,7 @@ export default function HomePage() {
         description: `Could not optimize the schedule: ${error.message}. Please try again.`,
         variant: "destructive",
       });
-       await loadTasksFromSupabase(); // Refresh on error too
+       await loadTasksFromSupabase(); 
     } finally {
       setIsScheduling(false);
     }
@@ -497,11 +492,11 @@ export default function HomePage() {
           <div className="sm:col-span-1 flex flex-col">
              <div className="hidden sm:flex mb-6 flex-col gap-2 w-full">
                 <Button onClick={openAddTaskDialog} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
-                  <PlusCircle className="mr-2 h-5 w-5 text-accent" />
+                  <PlusCircle className="mr-2 h-5 w-5" /> 
                   Add New Task
                 </Button>
                 <Button onClick={handleSmartSchedule} disabled={isScheduling || tasks.length === 0} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
-                  <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin text-primary' : 'text-accent'}`} />
+                  <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin text-primary' : ''}`} />
                   {isScheduling ? "Optimizing..." : "Smart Schedule"}
                 </Button>
               </div>
@@ -524,26 +519,25 @@ export default function HomePage() {
 
       {user && (
         <Button
-          className="sm:hidden fixed bottom-20 right-6 rounded-full h-16 w-16 shadow-xl z-50 flex items-center justify-center text-primary-foreground hover:text-primary-foreground bg-primary hover:bg-primary/90"
+          className="sm:hidden fixed bottom-20 right-6 rounded-full h-16 w-16 shadow-xl z-50 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
           variant={"default"}
           size="icon"
           onClick={openAddTaskDialog}
           aria-label="Add New Task"
         >
-          <Plus className="h-8 w-8 text-primary-foreground hover:text-primary-foreground" />
+          <Plus className="h-8 w-8" />
         </Button>
       )}
 
       {isDialogOpen && (
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
-            if (!open) { // Reset mode and editingTask when dialog closes
+            if (!open) { 
                 setEditingTask(null);
                 setDialogMode('add');
             }
           }}>
             <DialogContent
-              // Responsive dialog positioning: top on mobile, centered on desktop
               className="top-0 translate-y-0 data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top sm:top-[50%] sm:translate-y-[-50%] sm:data-[state=open]:slide-in-from-top-[48%] sm:data-[state=closed]:slide-out-to-top-[48%] sm:max-w-[425px]"
             >
               <DialogHeader>
@@ -552,7 +546,6 @@ export default function HomePage() {
                   {dialogMode === 'add' ? 'Add New Task' : 'Edit Task'}
                 </DialogTitle>
               </DialogHeader>
-              {/* Ensure DynamicTaskForm is re-keyed to reset state when mode or editingTask changes significantly */}
               <DynamicTaskForm
                 onSubmit={handleDialogSubmit}
                 key={dialogMode === 'edit' && editingTask ? editingTask.id : 'add-task-form'}
