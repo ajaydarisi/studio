@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { type FC } from 'react'; // Added React
+import React, { type FC } from 'react';
 import type { Task } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -13,17 +13,20 @@ interface ProgressIndicatorProps {
 
 const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task) => task.completed).length;
+  // Ensure we are strictly checking for true boolean
+  const completedTasks = tasks.filter((task) => task.completed === true).length;
   const tasksProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  const totalEstimatedTime = tasks.reduce((sum, task) => sum + (task.estimatedCompletionTime || 0), 0);
+  // Ensure estimatedCompletionTime is treated as a number in sums
+  const totalEstimatedTime = tasks.reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0);
   const completedEstimatedTime = tasks
-    .filter((task) => task.completed)
-    .reduce((sum, task) => sum + (task.estimatedCompletionTime || 0), 0);
+    .filter((task) => task.completed === true)
+    .reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0);
   
   const timeProgress = totalEstimatedTime > 0 ? (completedEstimatedTime / totalEstimatedTime) * 100 : 0;
 
   const formatTime = (minutes: number) => {
+    if (minutes < 0) minutes = 0; // Ensure minutes is not negative
     if (minutes < 60) return `${minutes}m`;
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
@@ -73,5 +76,3 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
 };
 
 export default React.memo(ProgressIndicator);
-
-    
