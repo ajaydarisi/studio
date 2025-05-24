@@ -37,18 +37,25 @@ const mapSupabaseRowToTask = (row: any): Task => {
   if (row.dueDate && typeof row.dueDate === 'string') {
     let dateCandidate = parseISO(row.dueDate);
     if (isValidDate(dateCandidate)) {
+        // If it's just a date string 'YYYY-MM-DD', parseISO might interpret it as UTC midnight
+        // or local midnight depending on JS engine. For consistency, treat as UTC.
         if (row.dueDate.length === 10 && row.dueDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
              const [year, month, day] = row.dueDate.split('-').map(Number);
+             // Create date as UTC midnight to avoid timezone shifts from local interpretation
              parsedDueDate = new Date(Date.UTC(year, month - 1, day));
         } else {
+            // For full ISO strings, parseISO should handle it correctly
             parsedDueDate = dateCandidate; 
         }
     } else {
+      // Fallback if parseISO fails for some reason
       parsedDueDate = startOfToday(); 
     }
   } else if (row.dueDate instanceof Date) {
     parsedDueDate = row.dueDate; 
   } else {
+    // Due date is now required, this path might be less likely if DB enforces NOT NULL
+    // but good to have a fallback.
     parsedDueDate = startOfToday(); 
   }
   
@@ -62,7 +69,7 @@ const mapSupabaseRowToTask = (row: any): Task => {
   } else if (typeof rawCompleted === 'number') {
     isTaskCompleted = rawCompleted === 1;
   } else {
-    isTaskCompleted = false; 
+    isTaskCompleted = false; // Default to false if undefined, null, or other types
   }
   
   return {
@@ -102,11 +109,7 @@ export default function HomePage() {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
+  
   const formInitialValues = useMemo(() => {
     if (dialogMode === 'edit' && editingTask) {
       return {
@@ -121,6 +124,11 @@ export default function HomePage() {
         dueDate: new Date(), 
     };
   }, [dialogMode, editingTask]);
+
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !session && isClient) {
@@ -158,9 +166,9 @@ export default function HomePage() {
           description: taskSeed.description,
           estimatedCompletionTime: taskSeed.estimatedCompletionTime,
           priority: taskSeed.priority,
-          completed: taskSeed.description === "Morning workout session", // Example: Mark first as completed
+          completed: taskSeed.description === "Morning workout session", 
           orderIndex: index,
-          dueDate: format(startOfDay(addDays(new Date(), index)), "yyyy-MM-dd"), // Seed with varying due dates
+          dueDate: format(startOfDay(addDays(new Date(), index)), "yyyy-MM-dd"), 
         }));
 
         const { error: insertError } = await supabase.from(TASKS_TABLE).insert(tasksToSeed);
@@ -197,9 +205,10 @@ export default function HomePage() {
       }
     } else if (!authLoading && !session && isClient) {
         setIsInitialPageLoading(false);
-        setTasks([]);
+        setTasks([]); 
     }
   }, [session, user, authLoading, loadTasksFromSupabase, toast, isClient, supabaseUrl, supabaseAnonKey]);
+
 
   const saveTaskOrderToSupabase = useCallback(async (tasksToSave: Pick<Task, 'id' | 'orderIndex'>[]) => {
     if (!user) return;
@@ -242,14 +251,14 @@ export default function HomePage() {
         .from(TASKS_TABLE)
         .insert(newTaskData)
         .select() 
-        .single();
+        .single(); 
 
       if (error) throw error;
       
       if (newTask) {
-        await loadTasksFromSupabase(); // Refresh list after adding
+        await loadTasksFromSupabase(); 
       } else {
-        await loadTasksFromSupabase(); // Fallback to full reload if newTask is null
+        await loadTasksFromSupabase(); 
       }
       toast({ title: "Task Added", description: `"${description}" has been added.` });
 
@@ -308,7 +317,7 @@ export default function HomePage() {
       setIsDialogOpen(false); 
       setEditingTask(null);   
     } catch (error) {
-      // Errors are toasted within handleActualAddTask/UpdateTask
+      // Errors are already toasted
     }
   }, [dialogMode, editingTask, handleActualAddTask, handleActualUpdateTask, toast, setIsDialogOpen, setEditingTask]);
 
@@ -365,7 +374,6 @@ export default function HomePage() {
       await loadTasksFromSupabase(); 
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
     } catch (error: any) {      
-      console.error("Error deleting task from Supabase:", error);
       toast({ title: "Delete Error", description: `Could not delete task: ${error.message}. Reverting.`, variant: "destructive" });
       await loadTasksFromSupabase(); 
     }
@@ -406,15 +414,21 @@ export default function HomePage() {
           id: task.id,
           description: task.description,
           estimatedCompletionTime: task.estimatedCompletionTime,
-          priority: task.priority,
+          priority: task.priority, 
           dueDate: task.dueDate.toISOString(), 
           completed: task.completed,
         })),
       };
       const result: TaskListOutput = await suggestOptimalTaskOrder(inputForAI);
 
-      const taskOrderUpdates = result.orderedTasks.map((aiTask, index) => ({
-        id: aiTask.id,
+      const newOrderedTasksFromAI = result.orderedTasks.map((aiTask, index) => {
+        const originalTask = tasks.find(t => t.id === aiTask.id);
+        return { ...originalTask!, orderIndex: index, completed: aiTask.completed }; 
+      }).sort((a,b) => a.orderIndex - b.orderIndex);
+
+
+      const taskOrderUpdates = newOrderedTasksFromAI.map((task, index) => ({
+        id: task.id,
         orderIndex: index,
       }));
 
@@ -486,12 +500,12 @@ export default function HomePage() {
           </div>
           <div className="sm:col-span-1 flex flex-col">
              <div className="hidden sm:flex mb-6 flex-col gap-2 w-full">
-                <Button onClick={openAddTaskDialog} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
-                  <PlusCircle className="mr-2 h-5 w-5 text-accent" /> 
+                <Button onClick={openAddTaskDialog} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full group">
+                  <PlusCircle className="mr-2 h-5 w-5 text-accent group-hover:text-accent-foreground" /> 
                   Add New Task
                 </Button>
-                <Button onClick={handleSmartSchedule} disabled={isScheduling || tasks.length === 0} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
-                  <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin text-primary' : 'text-accent'}`} />
+                <Button onClick={handleSmartSchedule} disabled={isScheduling || tasks.length === 0} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full group">
+                  <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin text-primary' : 'text-accent group-hover:text-accent-foreground'}`} />
                   {isScheduling ? "Optimizing..." : "Smart Schedule"}
                 </Button>
               </div>
@@ -549,7 +563,7 @@ export default function HomePage() {
                 }>
                   <DynamicTaskForm
                     onSubmit={handleDialogSubmit}
-                    key={dialogMode === 'edit' && editingTask ? editingTask.id : 'add-task-form'}
+                    key={dialogMode === 'edit' && editingTask ? editingTask.id : 'add-task-form'} 
                     initialValues={formInitialValues}
                     buttonText={dialogMode === 'add' ? 'Add Task' : 'Save Changes'}
                   />
