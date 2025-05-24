@@ -2,17 +2,17 @@
 "use client";
 
 import React, { type FC, type DragEvent, useState } from 'react';
-import type { Task } from "@/types"; // TaskPriority removed as it's not used for UI selection here
+import type { Task } from "@/types";
 import TaskItem from "./TaskItem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckSquare } from "lucide-react";
+import { CheckSquare, Edit3 } from "lucide-react"; // Added Edit3 for potential future use or consistency
 
 interface TaskListProps {
   tasks: Task[];
   setTasks: (tasks: Task[]) => void;
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
-  // onPriorityChange prop removed
+  onEditTask: (task: Task) => void; // Ensure this prop is defined
 }
 
 const TaskList: FC<TaskListProps> = ({
@@ -20,7 +20,7 @@ const TaskList: FC<TaskListProps> = ({
   setTasks,
   onToggleComplete,
   onDelete,
-  // onPriorityChange removed
+  onEditTask, // Ensure this prop is destructured
 }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
@@ -55,7 +55,7 @@ const TaskList: FC<TaskListProps> = ({
     const [draggedItem] = newTasks.splice(draggedItemIndex, 1);
     newTasks.splice(targetItemIndex, 0, draggedItem);
     
-    setTasks(newTasks);
+    setTasks(newTasks); // This calls handleSetTasksOptimistic from page.tsx
     setDraggedTaskId(null);
     setDragOverTaskId(null);
   };
@@ -92,18 +92,21 @@ const TaskList: FC<TaskListProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
+          // This outer onDrop is a fallback if drop doesn't happen on a TaskItem directly
+          // For example, if dropped onto padding space between items.
+          // Here, we primarily just want to reset dragging state.
           handleDragEnd();
         }}>
         {tasks.map((task) => (
-          <div key={task.id} onDragEnd={handleDragEnd}>
+          <div key={task.id} onDragEnd={handleDragEnd}> {/* Ensures drag state resets if dragged off an item and then released */}
              {dragOverTaskId === task.id && draggedTaskId !== task.id && (
-              <div className="h-1 my-1 bg-primary rounded-full" />
+              <div className="h-1 my-1 bg-primary rounded-full" /> // Visual cue for drop target
             )}
             <TaskItem
               task={task}
               onToggleComplete={onToggleComplete}
               onDelete={onDelete}
-              // onPriorityChange prop removed
+              onEdit={onEditTask} // Pass the onEditTask function to TaskItem's onEdit prop
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
@@ -117,3 +120,4 @@ const TaskList: FC<TaskListProps> = ({
 };
 
 export default React.memo(TaskList);
+
