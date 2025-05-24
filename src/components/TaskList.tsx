@@ -12,15 +12,16 @@ interface TaskListProps {
   setTasks: (tasks: Task[]) => void;
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
-  onEditTask: (task: Task) => void; // Prop received from page.tsx
+  onEditTask: (task: Task) => void; 
 }
 
-const TaskList: FC<TaskListProps> = React.memo(({
+// Temporarily removing React.memo to debug "onEdit is not a function"
+const TaskList: FC<TaskListProps> = ({
   tasks,
   setTasks,
   onToggleComplete,
   onDelete,
-  onEditTask, // Destructure the prop
+  onEditTask, 
 }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
@@ -51,7 +52,7 @@ const TaskList: FC<TaskListProps> = React.memo(({
     const targetItemIndex = newTasks.findIndex(t => t.id === targetTaskId);
 
     if (draggedItemIndex === -1 || targetItemIndex === -1) {
-      setDraggedTaskId(null); // Reset state if indices are invalid
+      setDraggedTaskId(null); 
       setDragOverTaskId(null);
       return;
     }
@@ -86,7 +87,7 @@ const TaskList: FC<TaskListProps> = React.memo(({
       </Card>
     );
   }
-
+  
   return (
     <Card className="mt-6 shadow-lg">
       <CardHeader>
@@ -105,7 +106,7 @@ const TaskList: FC<TaskListProps> = React.memo(({
               task={task}
               onToggleComplete={onToggleComplete}
               onDelete={onDelete}
-              onEdit={onEditTask} // Crucial: Pass the onEditTask prop to TaskItem's onEdit prop
+              onEdit={onEditTask} // Ensure onEditTask is passed to onEdit
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
@@ -116,6 +117,7 @@ const TaskList: FC<TaskListProps> = React.memo(({
       </CardContent>
     </Card>
   );
-});
+};
 
 export default TaskList;
+// export default React.memo(TaskList); // Re-add if the issue is fixed by other means
