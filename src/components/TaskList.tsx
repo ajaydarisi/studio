@@ -15,7 +15,6 @@ interface TaskListProps {
   onEditTask: (task: Task) => void; 
 }
 
-// Temporarily removing React.memo to debug "onEdit is not a function"
 const TaskList: FC<TaskListProps> = ({
   tasks,
   setTasks,
@@ -72,7 +71,7 @@ const TaskList: FC<TaskListProps> = ({
 
   if (tasks.length === 0) {
     return (
-      <Card className="mt-6 shadow-lg">
+      <Card className="shadow-lg"> {/* Removed mt-6 */}
         <CardHeader>
           <CardTitle className="text-xl flex items-center">
             <CheckSquare className="mr-2 h-6 w-6 text-primary" />
@@ -89,7 +88,7 @@ const TaskList: FC<TaskListProps> = ({
   }
   
   return (
-    <Card className="mt-6 shadow-lg">
+    <Card className="shadow-lg"> {/* Removed mt-6 */}
       <CardHeader>
         <CardTitle className="text-xl flex items-center">
           <CheckSquare className="mr-2 h-6 w-6 text-primary" />
@@ -106,7 +105,7 @@ const TaskList: FC<TaskListProps> = ({
               task={task}
               onToggleComplete={onToggleComplete}
               onDelete={onDelete}
-              onEdit={onEditTask} // Ensure onEditTask is passed to onEdit
+              onEdit={onEditTask} 
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
@@ -120,4 +119,3 @@ const TaskList: FC<TaskListProps> = ({
 };
 
 export default TaskList;
-// export default React.memo(TaskList); // Re-add if the issue is fixed by other means
