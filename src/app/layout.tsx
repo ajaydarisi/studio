@@ -20,9 +20,11 @@ export const metadata: Metadata = {
   title: 'Day Architect',
   description: 'Plan your day effectively with Day Architect.',
   icons: {
-    icon: '/icon.svg',
-    shortcut: '/icon.svg',
-    apple: '/icon.svg',
+    icon: [ // Using an array for more explicit SVG definition
+      { url: '/icon.svg', type: 'image/svg+xml', sizes: 'any' }
+    ],
+    shortcut: '/icon.svg', // Legacy browsers
+    apple: '/icon.svg',    // Apple touch icon
   }
 };
 
