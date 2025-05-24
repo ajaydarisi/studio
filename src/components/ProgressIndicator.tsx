@@ -11,7 +11,10 @@ interface ProgressIndicatorProps {
   tasks: Task[];
 }
 
-const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
+const ProgressIndicator: FC<ProgressIndicatorProps> = React.memo(({ tasks }) => {
+  // Log the received tasks to the browser console for debugging
+  console.log('ProgressIndicator tasks received:', JSON.stringify(tasks, null, 2));
+
   const totalTasks = tasks.length;
   // Ensure we are strictly checking for true boolean
   const completedTasks = tasks.filter((task) => task.completed === true).length;
@@ -20,13 +23,13 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
   // Ensure estimatedCompletionTime is treated as a number in sums
   const totalEstimatedTime = tasks.reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0);
   const completedEstimatedTime = tasks
-    .filter((task) => task.completed === true)
-    .reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0);
+    .filter((task) => task.completed === true) // Strict check for completed
+    .reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0); // Ensure time is a number
   
   const timeProgress = totalEstimatedTime > 0 ? (completedEstimatedTime / totalEstimatedTime) * 100 : 0;
 
   const formatTime = (minutes: number) => {
-    if (minutes < 0) minutes = 0; // Ensure minutes is not negative
+    if (minutes < 0 || isNaN(minutes)) minutes = 0; // Ensure minutes is not negative or NaN
     if (minutes < 60) return `${minutes}m`;
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
@@ -73,6 +76,7 @@ const ProgressIndicator: FC<ProgressIndicatorProps> = ({ tasks }) => {
       </CardContent>
     </Card>
   );
-};
+});
 
-export default React.memo(ProgressIndicator);
+ProgressIndicator.displayName = 'ProgressIndicator';
+export default ProgressIndicator;
