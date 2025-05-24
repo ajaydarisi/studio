@@ -12,24 +12,29 @@ interface ProgressIndicatorProps {
 }
 
 const ProgressIndicator: FC<ProgressIndicatorProps> = React.memo(({ tasks }) => {
-  // Log the received tasks to the browser console for debugging
-  console.log('ProgressIndicator tasks received:', JSON.stringify(tasks, null, 2));
+  console.log('[ProgressIndicator] Received tasks:', JSON.stringify(tasks, null, 2));
 
   const totalTasks = tasks.length;
-  // Ensure we are strictly checking for true boolean
   const completedTasks = tasks.filter((task) => task.completed === true).length;
   const tasksProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  // Ensure estimatedCompletionTime is treated as a number in sums
+  console.log('[ProgressIndicator] Total tasks:', totalTasks);
+  console.log('[ProgressIndicator] Completed tasks:', completedTasks);
+  console.log('[ProgressIndicator] Calculated tasksProgress:', tasksProgress);
+
   const totalEstimatedTime = tasks.reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0);
   const completedEstimatedTime = tasks
-    .filter((task) => task.completed === true) // Strict check for completed
-    .reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0); // Ensure time is a number
+    .filter((task) => task.completed === true)
+    .reduce((sum, task) => sum + (Number(task.estimatedCompletionTime) || 0), 0);
   
   const timeProgress = totalEstimatedTime > 0 ? (completedEstimatedTime / totalEstimatedTime) * 100 : 0;
 
+  console.log('[ProgressIndicator] Total estimated time:', totalEstimatedTime);
+  console.log('[ProgressIndicator] Completed estimated time:', completedEstimatedTime);
+  console.log('[ProgressIndicator] Calculated timeProgress:', timeProgress);
+
   const formatTime = (minutes: number) => {
-    if (minutes < 0 || isNaN(minutes)) minutes = 0; // Ensure minutes is not negative or NaN
+    if (minutes < 0 || isNaN(minutes)) minutes = 0;
     if (minutes < 60) return `${minutes}m`;
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
