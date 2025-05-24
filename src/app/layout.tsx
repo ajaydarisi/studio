@@ -19,12 +19,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Day Architect',
   description: 'Plan your day effectively with Day Architect.',
+  manifest: '/manifest.json', // Link to the web app manifest
   icons: {
-    icon: [ // Using an array for more explicit SVG definition
+    icon: [ 
       { url: '/icon.svg', type: 'image/svg+xml', sizes: 'any' }
     ],
-    shortcut: '/icon.svg', // Legacy browsers
-    apple: '/icon.svg',    // Apple touch icon
+    shortcut: '/icon.svg', 
+    apple: '/icon.svg',    
   }
 };
 
@@ -54,3 +55,4 @@ export default function RootLayout({
     </html>
   );
 }
+

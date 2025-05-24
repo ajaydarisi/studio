@@ -1,0 +1,17 @@
+{
+  "name": "Day Architect",
+  "short_name": "DayArchitect",
+  "description": "Plan your day effectively with Day Architect.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F0F4F8",
+  "theme_color": "#64B5F6",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
