@@ -8,8 +8,6 @@ import { suggestOptimalTaskOrder, type TaskListInput, type TaskListOutput } from
 import AppHeader from "@/components/AppHeader";
 import TaskList from "@/components/TaskList";
 import ProgressIndicator from "@/components/ProgressIndicator";
-// TaskForm is now dynamically imported
-// import TaskForm from "@/components/TaskForm"; 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Plus, PlusCircle, Loader2, Sparkles } from "lucide-react";
@@ -29,7 +27,7 @@ const DynamicTaskForm = dynamic(() => import('@/components/TaskForm'), {
       <p className="ml-2">Loading form...</p>
     </div>
   ),
-  ssr: false, // TaskForm uses client-side hooks like useForm
+  ssr: false,
 });
 
 
@@ -37,38 +35,36 @@ const mapSupabaseRowToTask = (row: any): Task => {
   let parsedDueDate: Date;
 
   if (row.dueDate && typeof row.dueDate === 'string') {
-    let dateCandidate = parseISO(row.dueDate); // Handles full ISO strings correctly
+    let dateCandidate = parseISO(row.dueDate);
     if (isValidDate(dateCandidate)) {
-        // Check if it's just a date string "YYYY-MM-DD" from Supabase
-        // Supabase date columns return "YYYY-MM-DD"
         if (row.dueDate.length === 10 && row.dueDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-             // Parse as local date then treat as start of day UTC for consistency
              const [year, month, day] = row.dueDate.split('-').map(Number);
              parsedDueDate = new Date(Date.UTC(year, month - 1, day));
-        } else { // Assume it's a full ISO string (e.g., from .toISOString())
-            parsedDueDate = dateCandidate; // Already UTC or handled by parseISO
+        } else {
+            parsedDueDate = dateCandidate;
         }
     } else {
       parsedDueDate = startOfToday();
     }
   } else if (row.dueDate instanceof Date) {
-    parsedDueDate = row.dueDate; // Already a Date object
+    parsedDueDate = row.dueDate;
   } else {
     parsedDueDate = startOfToday();
   }
 
-
   let isTaskCompleted: boolean;
-  if (typeof row.completed === 'boolean') {
-    isTaskCompleted = row.completed;
-  } else if (typeof row.completed === 'string') {
-    isTaskCompleted = row.completed.toLowerCase() === 'true';
-  } else if (typeof row.completed === 'number') {
-    isTaskCompleted = row.completed === 1;
+  const rawCompleted = row.completed;
+
+  if (typeof rawCompleted === 'boolean') {
+    isTaskCompleted = rawCompleted;
+  } else if (typeof rawCompleted === 'string') {
+    isTaskCompleted = rawCompleted.toLowerCase() === 'true';
+  } else if (typeof rawCompleted === 'number') {
+    isTaskCompleted = rawCompleted === 1;
   } else {
     isTaskCompleted = false;
   }
-
+  
   return {
     id: row.id,
     userId: row.user_id,
@@ -93,7 +89,7 @@ const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId' | 'orderIndex'>
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isClient, setIsClient] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isInitialPageLoading, setIsInitialPageLoading] = useState(true); // Renamed for clarity
   const [isScheduling, setIsScheduling] = useState(false);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -103,6 +99,9 @@ export default function HomePage() {
   const { toast } = useToast();
   const { session, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   const formInitialValues = useMemo(() => {
     if (dialogMode === 'edit' && editingTask) {
@@ -132,13 +131,17 @@ export default function HomePage() {
     }
   }, [authLoading, session, router, isClient]);
 
-  const loadTasksFromSupabase = useCallback(async () => {
+  const loadTasksFromSupabase = useCallback(async (isInitialLoad: boolean = false) => {
     if (!user) {
-      setIsLoadingData(false);
       setTasks([]);
+      if (isInitialLoad) setIsInitialPageLoading(false);
       return;
     }
-    setIsLoadingData(true);
+
+    if (isInitialLoad) {
+      setIsInitialPageLoading(true);
+    }
+  
     try {
       const { data, error } = await supabase
         .from(TASKS_TABLE)
@@ -177,27 +180,27 @@ export default function HomePage() {
     } catch (error: any) {
       toast({ title: "Error", description: `Could not load tasks: ${error.message}`, variant: "destructive" });
     } finally {
-      setIsLoadingData(false);
+      if (isInitialLoad) {
+        setIsInitialPageLoading(false);
+      }
     }
   }, [toast, user]);
 
   useEffect(() => {
     if (session && user && isClient) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      if (supabaseUrl && supabaseUrl !== 'your_supabase_url_here' && supabaseUrl !== '' &&
-          supabaseAnonKey && supabaseAnonKey !== 'your_supabase_anon_key_here' && supabaseAnonKey !== '') {
-          loadTasksFromSupabase();
+      const isSupabaseConfigured = supabaseUrl && supabaseUrl !== 'your_supabase_url_here' && supabaseUrl !== '' &&
+                                 supabaseAnonKey && supabaseAnonKey !== 'your_supabase_anon_key_here' && supabaseAnonKey !== '';
+      if (isSupabaseConfigured) {
+          loadTasksFromSupabase(true); // Pass true for initial page load
       } else {
           toast({ title: "Supabase Not Configured", description: "Please check your Supabase credentials in .env and restart the server.", variant: "destructive", duration: 10000});
-          setIsLoadingData(false);
+          setIsInitialPageLoading(false);
       }
     } else if (!authLoading && !session && isClient) {
-        setIsLoadingData(false);
+        setIsInitialPageLoading(false);
         setTasks([]);
     }
-  }, [session, user, authLoading, loadTasksFromSupabase, toast, isClient]);
+  }, [session, user, authLoading, loadTasksFromSupabase, toast, isClient, supabaseUrl, supabaseAnonKey]);
 
   const saveTaskOrderToSupabase = useCallback(async (tasksToSave: Pick<Task, 'id' | 'orderIndex'>[]) => {
     if (!user) return;
@@ -215,7 +218,7 @@ export default function HomePage() {
       });
     } catch (error: any) {
       toast({ title: "Save Order Error", description: `Could not save task order: ${error.message}`, variant: "destructive" });
-      await loadTasksFromSupabase(); // Revert to DB state on error
+      await loadTasksFromSupabase(); 
     }
   }, [toast, user, loadTasksFromSupabase]);
 
@@ -229,22 +232,21 @@ export default function HomePage() {
       user_id: user.id,
       description,
       estimatedCompletionTime: estimatedTime,
-      priority: 'medium',
+      priority: 'medium', // Default priority
       completed: false,
       orderIndex: tasks.length,
       dueDate: format(startOfDay(dueDate), "yyyy-MM-dd"),
     };
 
     try {
-      const { data: insertedTaskResult, error } = await supabase
+      const { error } = await supabase
         .from(TASKS_TABLE)
         .insert(newTaskData)
         .select()
         .single();
 
       if (error) throw error;
-      if (!insertedTaskResult) throw new Error("Failed to retrieve inserted task data.");
-
+      
       await loadTasksFromSupabase();
       toast({ title: "Task Added", description: `"${description}" has been added.` });
 
@@ -356,18 +358,18 @@ export default function HomePage() {
         .eq('user_id', user.id);
       if (deleteError) throw deleteError;
 
-      await loadTasksFromSupabase();
+      await loadTasksFromSupabase(); 
       toast({ title: "Task Deleted", description: `"${taskToDelete.description}" has been removed.`, variant: "destructive" });
-    } catch (error: any) {
+    } catch (error: any)      {
       toast({ title: "Delete Error", description: `Could not delete task: ${error.message}. Reverting.`, variant: "destructive" });
-      await loadTasksFromSupabase();
+      await loadTasksFromSupabase(); 
     }
   }, [tasks, toast, user, loadTasksFromSupabase]);
 
 
   const handleSetTasks = useCallback(async (newTasks: Task[]) => {
     if (!user) return;
-    setTasks(newTasks); // Optimistic update for smoother UX
+    setTasks(newTasks); 
 
     const tasksToSaveForOrder = newTasks.map((task, index) => ({
       id: task.id,
@@ -376,12 +378,12 @@ export default function HomePage() {
 
     try {
       await saveTaskOrderToSupabase(tasksToSaveForOrder);
-      await loadTasksFromSupabase(); // Ensure consistency with DB after reorder
+      await loadTasksFromSupabase(); 
     } catch (error: any) {
         toast({ title: "Reorder Failed", description: "Could not save new task order. Reverting.", variant: "destructive"});
-        await loadTasksFromSupabase(); // Revert to DB state on error
+        await loadTasksFromSupabase(); 
     }
-  }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase]);
+  }, [saveTaskOrderToSupabase, user, loadTasksFromSupabase, setTasks]);
 
   const handleSmartSchedule = useCallback(async () => {
     if (!user) {
@@ -400,7 +402,7 @@ export default function HomePage() {
           description: task.description,
           estimatedCompletionTime: task.estimatedCompletionTime,
           priority: task.priority,
-          dueDate: task.dueDate.toISOString(), // AI flow expects ISO string
+          dueDate: task.dueDate.toISOString(), 
         })),
       };
       const result: TaskListOutput = await suggestOptimalTaskOrder(inputForAI);
@@ -441,7 +443,8 @@ export default function HomePage() {
     );
   }
 
-  if (isLoadingData && session && user) {
+  // Use isInitialPageLoading for the full-page loader for the first task load
+  if (isInitialPageLoading && session && user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -476,8 +479,7 @@ export default function HomePage() {
             />
           </div>
           <div className="sm:col-span-1 flex flex-col">
-            {user && (
-              <div className="hidden sm:flex mb-6 flex-col gap-2 w-full">
+            <div className="hidden sm:flex mb-6 flex-col gap-2 w-full">
                 <Button onClick={handleOpenAddTaskDialog} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full">
                   <PlusCircle className="mr-2 h-5 w-5 text-accent" />
                   Add New Task
@@ -487,7 +489,6 @@ export default function HomePage() {
                   {isScheduling ? "Optimizing..." : "Smart Schedule"}
                 </Button>
               </div>
-            )}
             <ProgressIndicator tasks={tasks} />
             {user && (
               <Button
@@ -513,7 +514,7 @@ export default function HomePage() {
           onClick={handleOpenAddTaskDialog}
           aria-label="Add New Task"
         >
-          <Plus className="h-8 w-8" />
+          <Plus className="h-8 w-8 text-primary-foreground hover:text-primary-foreground" />
         </Button>
       )}
 
@@ -551,3 +552,4 @@ export default function HomePage() {
     </div>
   );
 }
+
