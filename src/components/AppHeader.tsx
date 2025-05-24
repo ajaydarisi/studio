@@ -1,12 +1,9 @@
 
 "use client";
 
-import React, { type FC } from 'react'; // Removed useState as it's no longer needed here for the dialog
+import React, { type FC } from 'react';
 import { Button } from "@/components/ui/button";
-import { Sparkles, CalendarCheck2, PlusCircle, LogIn, LogOut, UserCircle, UserCog } from "lucide-react"; 
-// Dialog related imports are removed as the dialog is now in page.tsx
-// import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-// import TaskForm from "@/components/TaskForm"; // TaskForm is used in page.tsx's dialog
+import { CalendarCheck2, LogIn, LogOut, UserCircle, UserCog } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
@@ -22,30 +19,29 @@ import { ThemeToggleButton } from '@/components/ThemeToggleButton';
 
 
 interface AppHeaderProps {
-  onSmartSchedule: () => void;
-  isScheduling: boolean;
-  onTriggerAddTask: () => void; // Renamed from onAddTask, this now just opens the dialog
+  // Props onSmartSchedule, isScheduling, and onTriggerAddTaskDialog are removed
 }
 
-const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onTriggerAddTask }) => {
+const AppHeader: FC<AppHeaderProps> = React.memo(() => {
   const { user, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleSignOut = async () => {
+  const handleSignOut = React.useCallback(async () => {
     const { error } = await signOut();
     if (error) {
       toast({ title: 'Logout Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      // router.push('/login'); // AuthProvider handles redirect
     }
-  };
+  }, [signOut, toast]);
 
-  const handleGoToProfile = () => {
+  const handleGoToProfile = React.useCallback(() => {
     router.push('/profile');
-  };
+  }, [router]);
 
-  const AuthButtonBlock = () => (
+  const AuthButtonBlock = React.useCallback(() => (
     <>
       {authLoading ? (
          <Button variant="outline" size="icon" disabled className="shadow-sm h-9 w-9 sm:h-10 sm:w-10">...</Button>
@@ -78,13 +74,13 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onTrigge
         </Button>
       )}
     </>
-  );
+  ), [user, authLoading, handleGoToProfile, handleSignOut, router]);
 
   return (
     <header className="mb-6 pb-4 border-b">
       <div className="flex flex-col sm:flex-row items-center justify-between w-full">
-        {/* Top row for mobile: Logo and Auth/Theme */}
-        <div className="w-full flex items-center justify-between mb-4 sm:mb-0">
+        {/* Top row: Logo and Auth/Theme */}
+        <div className="w-full flex items-center justify-between sm:mb-0">
             <div className="flex items-center space-x-3">
                 <CalendarCheck2 className="h-8 w-8 text-primary" />
                 <h1 className="text-3xl font-bold text-foreground">Day Architect</h1>
@@ -95,24 +91,11 @@ const AppHeader: FC<AppHeaderProps> = ({ onSmartSchedule, isScheduling, onTrigge
             </div>
         </div>
 
-        {/* Bottom row for mobile (action buttons), part of right group for desktop */}
-        {user && (
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 w-full sm:w-auto mt-4 sm:mt-0">
-                <Button onClick={onTriggerAddTask} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto hidden sm:flex"> {/* Hidden on mobile, shown on sm+ */}
-                    <PlusCircle className="mr-2 h-5 w-5 text-accent" />
-                    Add New Task
-                </Button>
-                 <Button onClick={onSmartSchedule} disabled={isScheduling} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto">
-                    <Sparkles className={`mr-2 h-5 w-5 ${isScheduling ? 'animate-spin' : ''}`} />
-                    {isScheduling ? "Optimizing..." : "Smart Schedule"}
-                </Button>
-            </div>
-        )}
+        {/* Action buttons are now moved to page.tsx */}
       </div>
     </header>
   );
-};
+});
 
-export default React.memo(AppHeader);
-
-    
+AppHeader.displayName = 'AppHeader';
+export default AppHeader;
