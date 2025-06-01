@@ -35,51 +35,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === 'SIGNED_IN' && session) {
           router.push('/');
         } else if (event === 'SIGNED_OUT') {
-          // Only push to login if not already on signup or login to avoid redirect loops
           if (router.pathname !== '/login' && router.pathname !== '/signup') {
             router.push('/login');
           }
         } else if (event === 'USER_UPDATED') {
-           // Refresh user data if already on profile page
            if (router.pathname === '/profile') {
-             // Potentially trigger a re-fetch or rely on component's own useEffect for user
            }
         }
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session : currentSession } }) => { // Renamed to avoid conflict
+    supabase.auth.getSession().then(({ data: { session : currentSession } }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
+      setIsLoading(false);
+    }).catch(error => {
+      console.error("AuthContext: Error fetching initial session:", error);
+      setSession(null);
+      setUser(null);
       setIsLoading(false);
     });
 
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [router]); // router dependency is important here
+  }, [router]);
 
   const signInWithEmail = ReactUseCallback(async (email: string, password: string) => {
-    setIsLoading(true); // Consider if this global loading is needed for sign-in specifically
+    setIsLoading(true); 
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-    // Session/user update handled by onAuthStateChange
     setIsLoading(false);
     return { error };
-  }, []); // Empty dependency array: this function never changes
+  }, []); 
 
   const signUpWithEmail = ReactUseCallback(async (credentials: SignUpWithPasswordCredentials) => {
-    setIsLoading(true); // Consider if this global loading is needed
+    setIsLoading(true); 
     const { data, error } = await supabase.auth.signUp(credentials);
     setIsLoading(false);
     return { error, data };
-  }, []); // Empty dependency array
+  }, []); 
 
-  const signOutUser = ReactUseCallback(async () => { // Renamed to avoid conflict with 'signOut' from useState
-    setIsLoading(true); // Consider if this global loading is needed
+  const signOutUser = ReactUseCallback(async () => { 
+    setIsLoading(true); 
     const { error } = await supabase.auth.signOut();
     setIsLoading(false);
     return { error };
-  }, []); // Empty dependency array
+  }, []); 
 
 
   const value = useMemo(() => ({
@@ -88,7 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isLoading,
     signInWithEmail,
     signUpWithEmail,
-    signOut: signOutUser, // Use the renamed function
+    signOut: signOutUser, 
   }), [session, user, isLoading, signInWithEmail, signUpWithEmail, signOutUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -102,5 +103,3 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
-// The problematic line "const useCallback = React.useCallback;" has been removed.
-// Functions within the provider now use ReactUseCallback (aliased import) directly.
