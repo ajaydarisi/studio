@@ -86,13 +86,6 @@ const mapSupabaseRowToTask = (row: any): Task => {
 };
 
 
-const initialTasksSeed: Omit<Task, 'id' | 'createdAt' | 'userId' | 'orderIndex' | 'completed' | 'dueDate'>[] = [
-  { description: "Morning workout session", estimatedCompletionTime: 45, priority: 'high' },
-  { description: "Respond to urgent emails", estimatedCompletionTime: 60, priority: 'high' },
-  { description: "Draft project proposal", estimatedCompletionTime: 120, priority: 'high' },
-  { description: "Grocery shopping", estimatedCompletionTime: 75, priority: 'low' },
-];
-
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isClient, setIsClient] = useState(false);
@@ -158,31 +151,7 @@ export default function HomePage() {
 
       if (error) throw error;
 
-      let fetchedTasks: Task[] = data ? data.map(mapSupabaseRowToTask) : [];
-
-      if (fetchedTasks.length === 0 && initialTasksSeed.length > 0 && user?.id) {
-        const tasksToSeed = initialTasksSeed.map((taskSeed, index) => ({
-          user_id: user.id,
-          description: taskSeed.description,
-          estimatedCompletionTime: taskSeed.estimatedCompletionTime,
-          priority: taskSeed.priority,
-          completed: taskSeed.description === "Morning workout session", 
-          orderIndex: index,
-          dueDate: format(startOfDay(addDays(new Date(), index)), "yyyy-MM-dd"), 
-        }));
-
-        const { error: insertError } = await supabase.from(TASKS_TABLE).insert(tasksToSeed);
-        if (insertError) throw insertError;
-
-        const { data: seededData, error: fetchSeededError } = await supabase
-          .from(TASKS_TABLE)
-          .select('*')
-          .eq('user_id', user.id)
-          .order('orderIndex', { ascending: true });
-        if (fetchSeededError) throw fetchSeededError;
-        fetchedTasks = seededData ? seededData.map(mapSupabaseRowToTask) : [];
-        toast({ title: "Welcome!", description: "Sample tasks loaded." });
-      }
+      const fetchedTasks: Task[] = data ? data.map(mapSupabaseRowToTask) : [];
       setTasks(fetchedTasks);
     } catch (error: any) {
       toast({ title: "Error", description: `Could not load tasks: ${error.message}`, variant: "destructive" });
